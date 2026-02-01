@@ -1,0 +1,24 @@
+server:
+  port: 8084
+spring:
+  application:
+    name: erp-list-payment-service
+  datasource:
+    url: jdbc:mysql://localhost:3306/erp_list_payment?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true&serverTimezone=Asia/Shanghai
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: root
+  cloud:
+    nacos:
+      server-addr: localhost:8848
+mybatis-plus:
+  global-config:
+    db-config:
+      update-strategy: not_null
+      id-type: auto
+logging:
+  level:
+    com.erplist: debug
+  file:
+    path: "logs/${spring.application.name}"
+

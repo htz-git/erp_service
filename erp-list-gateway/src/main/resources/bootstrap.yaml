@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: erp-list-gateway
+  profiles:
+    active: dev
+  cloud:
+    nacos:
+      server-addr: localhost:8848
+      config:
+        file-extension: yaml
+        shared-configs:
+          - dataId: shared-log.yaml
+
+

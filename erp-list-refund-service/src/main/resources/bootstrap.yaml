@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: erp-list-refund-service
+  profiles:
+    active: dev
+  cloud:
+    nacos:
+      server-addr: localhost:8848
+      config:
+        file-extension: yaml
+
+

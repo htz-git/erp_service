@@ -1,0 +1,71 @@
+server:
+  port: 8080
+spring:
+  cloud:
+    gateway:
+      routes:
+        # 用户服务
+        - id: user-service
+          uri: lb://erp-list-user-service
+          predicates:
+            - Path=/api/users/**
+          filters:
+            - StripPrefix=1
+        # 店铺服务
+        - id: seller-service
+          uri: lb://erp-list-seller-service
+          predicates:
+            - Path=/api/sellers/**
+          filters:
+            - StripPrefix=1
+        # 订单服务
+        - id: order-service
+          uri: lb://erp-list-order-service
+          predicates:
+            - Path=/api/orders/**
+          filters:
+            - StripPrefix=1
+        # 支付服务
+        - id: payment-service
+          uri: lb://erp-list-payment-service
+          predicates:
+            - Path=/api/payments/**
+          filters:
+            - StripPrefix=1
+        # 促销服务
+        - id: promotion-service
+          uri: lb://erp-list-promotion-service
+          predicates:
+            - Path=/api/promotions/**,/api/coupons/**
+          filters:
+            - StripPrefix=1
+        # 采购服务
+        - id: purchase-service
+          uri: lb://erp-list-purchase-service
+          predicates:
+            - Path=/api/purchases/**
+          filters:
+            - StripPrefix=1
+        # 退款服务
+        - id: refund-service
+          uri: lb://erp-list-refund-service
+          predicates:
+            - Path=/api/refunds/**
+          filters:
+            - StripPrefix=1
+        # 补货服务
+        - id: replenishment-service
+          uri: lb://erp-list-replenishment-service
+          predicates:
+            - Path=/api/replenishments/**
+          filters:
+            - StripPrefix=1
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns: "*"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+            allowCredentials: true
+
+
