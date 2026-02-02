@@ -19,4 +19,6 @@ public class ReplenishmentSuggestionQueryDTO {
     private LocalDate endDate;
     /** 预测未来天数，默认 7 */
     private Integer forecastDays = 7;
+    /** 店铺 ID（可选，不传则用当前用户上下文） */
+    private Long sid;
 }

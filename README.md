@@ -22,35 +22,9 @@ ERP List是一个基于Spring Cloud微服务架构的跨境电商管理系统，
 | 2 | **数据库初始化** | 执行 `sql/00_执行所有SQL脚本.sql` |
 | 3 | 启动 **网关** | `cd erp-list-gateway && mvn spring-boot:run`，端口 8080 |
 | 4 | 启动各 **微服务** | 用户(8081)、店铺(8082)、订单(8083) 等，见下方详细命令 |
-| 5 | （可选）启动 **LSTM 预测服务** | Python，端口 5000，见「LSTM 服务」 |
-| 6 | 启动 **前端** | `cd erp-list-frontend && npm i && npm run dev` |
+| 5 | 启动 **前端** | `cd erp-list-frontend && npm i && npm run dev` |
 
-### 消除 Python 导入报错（必读：使用 LSTM 或编辑 Python 时）
-
-本项目以 **Java 为主**，仓库根目录未配置 Python 解释器，因此 **`lstm-forecast-service` 下的 `flask`、`numpy`、`tensorflow` 等导入会全部报错**。按下面任选一种方式即可修复：
-
-**方式一：在 IDE 中选择 Python 解释器（推荐）**
-
-1. 在 **`lstm-forecast-service`** 目录下创建并激活虚拟环境（若尚未创建）：
-   ```bash
-   cd lstm-forecast-service
-   python -m venv venv
-   # Windows:
-   venv\Scripts\activate
-   # Mac/Linux:
-   # source venv/bin/activate
-   pip install -r requirements.txt
-   ```
-2. 在 **Cursor / VS Code** 中：`Ctrl+Shift+P`（Mac：`Cmd+Shift+P`）→ 输入 **「Python: Select Interpreter」** → 选择：
-   - **Windows**：`lstm-forecast-service\venv\Scripts\python.exe`
-   - **Mac/Linux**：`lstm-forecast-service/venv/bin/python`
-
-**方式二：让工作区默认使用该解释器**
-
-将项目根目录下的 **`vscode-settings-example.json`** 内容复制到 **`.vscode/settings.json`**（需自行创建 `.vscode` 目录；该目录被 .gitignore，仅本地生效）。  
-Mac/Linux 用户请将示例中的 `Scripts/python.exe` 改为 `bin/python`。
-
-完成上述任一步骤后，`lstm-forecast-service` 下的 Python 文件不应再出现第三方库导入报错。
+补货建议由 **erp-list-replenishment-service** 内建 **LSTM + 自回归**（DL4J）完成，无需单独启动 Python 服务。
 
 ---
 
@@ -66,6 +40,7 @@ Mac/Linux 用户请将示例中的 `Scripts/python.exe` 改为 `bin/python`。
 - MyBatis Plus 3.4.3
 - MySQL 8.0.23
 - Knife4j（API文档）
+- Deeplearning4j（补货服务内 LSTM 需求预测）
 
 ### 前端
 - Vue 3
@@ -88,11 +63,9 @@ erp_list/
 ├── erp-list-promotion-service/ # 促销服务（优惠券、促销活动）
 ├── erp-list-purchase-service/ # 采购服务（采购单、供应商）
 ├── erp-list-refund-service/   # 退款服务（退款申请、退款记录）
-├── erp-list-replenishment-service/ # 补货服务（补货单、LSTM 补货建议）
-├── lstm-forecast-service/    # LSTM 补货预测服务（Python，供补货服务调用）
+├── erp-list-replenishment-service/ # 补货服务（补货单、LSTM+自回归 补货建议，Java DL4J）
 ├── sql/                       # SQL脚本
-├── erp-list-frontend/         # 前端项目
-└── vscode-settings-example.json  # IDE Python 解释器示例配置
+└── erp-list-frontend/         # 前端项目
 ```
 
 ## 数据库设计
@@ -124,7 +97,6 @@ erp_list/
 | 采购服务 | 8086 |
 | 退款服务 | 8087 |
 | 补货服务 | 8088 |
-| **LSTM 预测服务（Python）** | **5000** |
 
 ## 启动服务（详细步骤）
 
@@ -157,7 +129,7 @@ cd erp-list-seller-service && mvn spring-boot:run
 # 4）订单服务（补货建议依赖其销售时序接口）
 cd erp-list-order-service && mvn spring-boot:run
 
-# 5）补货服务（可选，依赖订单服务；若需补货建议还需启动 LSTM 服务）
+# 5）补货服务（可选，依赖订单服务；补货建议由内建 LSTM+自回归 预测）
 cd erp-list-replenishment-service && mvn spring-boot:run
 
 # 6）其余服务按需启动：支付、促销、采购、退款等
@@ -166,28 +138,7 @@ cd erp-list-replenishment-service && mvn spring-boot:run
 # ...
 ```
 
-### 4. 启动 LSTM 补货预测服务（Python，可选）
-
-补货建议接口（`GET /replenishments/suggestions`）会调用本服务；若不启动，补货建议将返回空列表。
-
-- **Python**：建议 3.8 或 3.9（与 TensorFlow 兼容较好）。
-- **依赖安装与运行**（在 `lstm-forecast-service` 下）：
-
-```bash
-cd lstm-forecast-service
-python -m venv venv
-# Windows:
-venv\Scripts\activate
-# Mac/Linux:
-# source venv/bin/activate
-pip install -r requirements.txt
-python app.py
-```
-
-默认监听 **5000** 端口；补货服务中 `lstm.forecast.service-url` 需指向该地址（默认 `http://localhost:5000`）。  
-**IDE 中 Python 导入报错**：见上文「消除 Python 导入报错」一节。
-
-### 5. 启动前端
+### 4. 启动前端
 
 ```bash
 cd erp-list-frontend

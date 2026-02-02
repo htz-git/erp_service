@@ -6,16 +6,16 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 
 /**
- * RestTemplate 配置（用于调用 LSTM 预测服务等外部 HTTP）
+ * RestTemplate 配置（供其他 HTTP 调用使用；LSTM 预测已改为 Java 内建）
  */
 @Configuration
 public class RestTemplateConfig {
 
     @Bean
-    public RestTemplate restTemplate(LstmForecastProperties lstmProps) {
+    public RestTemplate restTemplate() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(lstmProps.getConnectTimeout());
-        factory.setReadTimeout(lstmProps.getReadTimeout());
+        factory.setConnectTimeout(5000);
+        factory.setReadTimeout(30000);
         return new RestTemplate(factory);
     }
 }

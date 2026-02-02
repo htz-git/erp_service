@@ -4,8 +4,8 @@ import com.erplist.api.client.OrderClient;
 import com.erplist.api.dto.SalesTimeSeriesItemDTO;
 import com.erplist.common.result.Result;
 import com.erplist.common.utils.UserContext;
-import com.erplist.replenishment.client.LstmForecastClient;
 import com.erplist.replenishment.dto.ReplenishmentSuggestionDTO;
+import com.erplist.replenishment.service.LstmForecastService;
 import com.erplist.replenishment.dto.ReplenishmentSuggestionQueryDTO;
 import com.erplist.replenishment.service.ReplenishmentSuggestionService;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 public class ReplenishmentSuggestionServiceImpl implements ReplenishmentSuggestionService {
 
     private final OrderClient orderClient;
-    private final LstmForecastClient lstmForecastClient;
+    private final LstmForecastService lstmForecastService;
 
     private static final int DEFAULT_HISTORY_DAYS = 30;
     private static final int DEFAULT_FORECAST_DAYS = 7;
@@ -34,7 +34,7 @@ public class ReplenishmentSuggestionServiceImpl implements ReplenishmentSuggesti
     @Override
     public List<ReplenishmentSuggestionDTO> getSuggestions(ReplenishmentSuggestionQueryDTO queryDTO) {
         String zid = UserContext.getZid();
-        Long sid = UserContext.getSid();
+        Long sid = (queryDTO != null && queryDTO.getSid() != null) ? queryDTO.getSid() : UserContext.getSid();
 
         LocalDate endDate = queryDTO != null && queryDTO.getEndDate() != null
                 ? queryDTO.getEndDate()
@@ -79,7 +79,7 @@ public class ReplenishmentSuggestionServiceImpl implements ReplenishmentSuggesti
             return Collections.emptyList();
         }
 
-        List<Map<String, Object>> predictions = lstmForecastClient.predict(series, forecastDays);
+        List<Map<String, Object>> predictions = lstmForecastService.predict(series, forecastDays);
         if (CollectionUtils.isEmpty(predictions)) {
             return Collections.emptyList();
         }
