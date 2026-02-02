@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.erplist.order.mapper.OrderItemMapper">
+
+    <!-- 按日、按 SKU 聚合销量，供 LSTM 补货预测使用 -->
+    <select id="selectSalesTimeSeries" resultType="com.erplist.api.dto.SalesTimeSeriesItemDTO">
+        SELECT
+            DATE(oi.create_time) AS date,
+            oi.sku_id AS skuId,
+            oi.sku_code AS skuCode,
+            oi.product_name AS productName,
+            oi.product_id AS productId,
+            SUM(oi.quantity) AS quantity
+        FROM order_item oi
+        INNER JOIN `order` ord ON ord.id = oi.order_id AND ord.deleted = 0
+        WHERE DATE(oi.create_time) &gt;= #{startDate} AND DATE(oi.create_time) &lt;= #{endDate}
+        <if test="zid != null and zid != ''">
+            AND oi.zid = #{zid}
+        </if>
+        <if test="sid != null">
+            AND oi.sid = #{sid}
+        </if>
+        <if test="skuId != null">
+            AND oi.sku_id = #{skuId}
+        </if>
+        GROUP BY DATE(oi.create_time), oi.sku_id, oi.sku_code, oi.product_name, oi.product_id
+        ORDER BY oi.sku_id, date
+    </select>
+</mapper>

@@ -16,6 +16,13 @@ mybatis-plus:
     db-config:
       update-strategy: not_null
       id-type: auto
+# LSTM 补货预测服务（Python 服务地址）
+lstm:
+  forecast:
+    service-url: http://localhost:5000
+    connect-timeout: 5000
+    read-timeout: 30000
+
 logging:
   level:
     com.erplist: debug

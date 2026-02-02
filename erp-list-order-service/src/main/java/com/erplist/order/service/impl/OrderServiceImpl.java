@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.erplist.common.exception.BusinessException;
 import com.erplist.common.utils.UserContext;
+import com.erplist.api.dto.SalesTimeSeriesItemDTO;
 import com.erplist.order.dto.OrderDTO;
 import com.erplist.order.dto.OrderItemDTO;
 import com.erplist.order.dto.OrderQueryDTO;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -124,5 +126,12 @@ public class OrderServiceImpl implements OrderService {
         }
         wrapper.orderByDesc(Order::getCreateTime);
         return orderMapper.selectPage(page, wrapper);
+    }
+
+    @Override
+    public List<SalesTimeSeriesItemDTO> getSalesTimeSeries(String zid, Long sid, LocalDate startDate, LocalDate endDate, Long skuId) {
+        String effectiveZid = StringUtils.hasText(zid) ? zid : UserContext.getZid();
+        Long effectiveSid = sid != null ? sid : UserContext.getSid();
+        return orderItemMapper.selectSalesTimeSeries(effectiveZid, effectiveSid, startDate, endDate, skuId);
     }
 }

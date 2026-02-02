@@ -1,0 +1,4 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/lstm-forecast-service/venv/Scripts/python.exe",
+  "python.terminal.activateEnvironment": true
+}

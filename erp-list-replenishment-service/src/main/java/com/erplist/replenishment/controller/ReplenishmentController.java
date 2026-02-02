@@ -4,9 +4,12 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.erplist.common.result.Result;
 import com.erplist.replenishment.dto.ReplenishmentOrderDTO;
 import com.erplist.replenishment.dto.ReplenishmentOrderQueryDTO;
+import com.erplist.replenishment.dto.ReplenishmentSuggestionDTO;
+import com.erplist.replenishment.dto.ReplenishmentSuggestionQueryDTO;
 import com.erplist.replenishment.entity.ReplenishmentItem;
 import com.erplist.replenishment.entity.ReplenishmentOrder;
 import com.erplist.replenishment.service.ReplenishmentOrderService;
+import com.erplist.replenishment.service.ReplenishmentSuggestionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -22,6 +25,7 @@ import java.util.List;
 public class ReplenishmentController {
 
     private final ReplenishmentOrderService replenishmentOrderService;
+    private final ReplenishmentSuggestionService replenishmentSuggestionService;
 
     @PostMapping
     public Result<ReplenishmentOrder> create(@Validated @RequestBody ReplenishmentOrderDTO dto) {
@@ -57,5 +61,14 @@ public class ReplenishmentController {
     public Result<Page<ReplenishmentOrder>> query(ReplenishmentOrderQueryDTO queryDTO) {
         Page<ReplenishmentOrder> page = replenishmentOrderService.queryReplenishmentOrders(queryDTO);
         return Result.success(page);
+    }
+
+    /**
+     * 基于 LSTM 对当前用户订单销售时序的预测，获取补货建议
+     */
+    @GetMapping("/suggestions")
+    public Result<List<ReplenishmentSuggestionDTO>> getSuggestions(ReplenishmentSuggestionQueryDTO queryDTO) {
+        List<ReplenishmentSuggestionDTO> list = replenishmentSuggestionService.getSuggestions(queryDTO);
+        return Result.success(list);
     }
 }

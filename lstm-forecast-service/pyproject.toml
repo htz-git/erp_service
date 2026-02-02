@@ -1,0 +1,20 @@
+# LSTM 补货预测服务 - Python 项目配置
+# 用于 IDE（Cursor/VS Code）识别 Python 环境，消除导入报错
+[project]
+name = "lstm-forecast-service"
+version = "1.0.0"
+description = "LSTM 补货预测 REST 服务"
+requires-python = ">=3.8"
+dependencies = [
+    "flask>=2.3.0",
+    "numpy>=1.24.0",
+]
+optional-dependencies = {
+    "lstm": ["tensorflow>=2.13.0"],
+}
+
+[tool.pyright]
+pythonVersion = "3.8"
+venvPath = "."
+venv = "venv"
+typeCheckingMode = "basic"
