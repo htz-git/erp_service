@@ -27,6 +27,11 @@ public class Seller {
      * 用户ID（所属公司）
      */
     private Long userId;
+
+    /**
+     * 公司ID（与 user.zid 一致），按公司维度授权店铺
+     */
+    private String zid;
     
     /**
      * 店铺名称

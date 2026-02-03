@@ -31,4 +31,7 @@ public class SellerDTO {
     private String remark;
 
     private Long userId;
+
+    /** 公司ID（与 user.zid 一致），创建时未传则从 UserContext 取 */
+    private String zid;
 }

@@ -11,6 +11,8 @@ import java.math.BigDecimal;
 @Data
 public class OrderItemDTO {
     private Long id;
+    /** 关联公司商品ID（company_product.id） */
+    private Long companyProductId;
     private Long productId;
     @NotNull(message = "商品名称不能为空")
     private String productName;

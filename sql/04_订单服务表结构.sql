@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS `order` (
   `sid` BIGINT DEFAULT NULL COMMENT '店铺ID（Seller ID，引用seller.id）',
   `total_amount` DECIMAL(10,2) NOT NULL COMMENT '订单总金额',
   `discount_amount` DECIMAL(10,2) DEFAULT 0.00 COMMENT '优惠金额',
+  `promotion_discount_amount` DECIMAL(10,2) DEFAULT 0.00 COMMENT '促销折扣金额',
+  `tax_amount` DECIMAL(10,2) DEFAULT 0.00 COMMENT '税费',
   `pay_amount` DECIMAL(10,2) NOT NULL COMMENT '实付金额',
   `order_status` TINYINT NOT NULL DEFAULT 0 COMMENT '订单状态：0-待支付，1-已支付，2-已发货，3-已完成，4-已取消，5-已退款',
   `pay_status` TINYINT DEFAULT 0 COMMENT '支付状态：0-未支付，1-已支付，2-已退款',

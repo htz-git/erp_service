@@ -25,18 +25,11 @@ spring:
             - Path=/api/orders/**
           filters:
             - StripPrefix=1
-        # 支付服务
-        - id: payment-service
-          uri: lb://erp-list-payment-service
+        # 商品服务
+        - id: product-service
+          uri: lb://erp-list-product-service
           predicates:
-            - Path=/api/payments/**
-          filters:
-            - StripPrefix=1
-        # 促销服务
-        - id: promotion-service
-          uri: lb://erp-list-promotion-service
-          predicates:
-            - Path=/api/promotions/**,/api/coupons/**
+            - Path=/api/products/**
           filters:
             - StripPrefix=1
         # 采购服务

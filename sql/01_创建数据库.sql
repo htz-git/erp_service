@@ -22,11 +22,6 @@ CREATE DATABASE IF NOT EXISTS `erp_list_payment`
 DEFAULT CHARACTER SET utf8mb4 
 COLLATE utf8mb4_unicode_ci;
 
--- 创建促销服务数据库
-CREATE DATABASE IF NOT EXISTS `erp_list_promotion` 
-DEFAULT CHARACTER SET utf8mb4 
-COLLATE utf8mb4_unicode_ci;
-
 -- 创建采购服务数据库
 CREATE DATABASE IF NOT EXISTS `erp_list_purchase` 
 DEFAULT CHARACTER SET utf8mb4 

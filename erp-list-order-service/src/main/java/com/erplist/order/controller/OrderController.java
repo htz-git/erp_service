@@ -2,8 +2,10 @@ package com.erplist.order.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.erplist.common.result.Result;
+import com.erplist.api.dto.CountryOrderCountDTO;
 import com.erplist.api.dto.SalesTimeSeriesItemDTO;
 import com.erplist.order.dto.OrderDTO;
+import com.erplist.order.dto.OrderDetailVO;
 import com.erplist.order.dto.OrderQueryDTO;
 import com.erplist.order.entity.Order;
 import com.erplist.order.service.OrderService;
@@ -32,9 +34,9 @@ public class OrderController {
     }
 
     @GetMapping("/{id}")
-    public Result<Order> getOrderById(@PathVariable Long id) {
-        Order order = orderService.getOrderById(id);
-        return Result.success(order);
+    public Result<OrderDetailVO> getOrderById(@PathVariable Long id) {
+        OrderDetailVO vo = orderService.getOrderById(id);
+        return Result.success(vo);
     }
 
     @PutMapping("/{id}")
@@ -66,6 +68,19 @@ public class OrderController {
             @RequestParam("endDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @RequestParam(value = "skuId", required = false) Long skuId) {
         List<SalesTimeSeriesItemDTO> list = orderService.getSalesTimeSeries(zid, sid, startDate, endDate, skuId);
+        return Result.success(list);
+    }
+
+    /**
+     * 按国家统计订单数，供首页地图使用
+     */
+    @GetMapping("/stats-by-country")
+    public Result<List<CountryOrderCountDTO>> getOrderStatsByCountry(
+            @RequestParam(value = "zid", required = false) String zid,
+            @RequestParam(value = "sid", required = false) Long sid,
+            @RequestParam(value = "startDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(value = "endDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        List<CountryOrderCountDTO> list = orderService.getOrderStatsByCountry(zid, sid, startDate, endDate);
         return Result.success(list);
     }
 }

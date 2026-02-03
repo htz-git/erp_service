@@ -4,8 +4,10 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.erplist.common.exception.BusinessException;
 import com.erplist.common.utils.UserContext;
+import com.erplist.api.dto.CountryOrderCountDTO;
 import com.erplist.api.dto.SalesTimeSeriesItemDTO;
 import com.erplist.order.dto.OrderDTO;
+import com.erplist.order.dto.OrderDetailVO;
 import com.erplist.order.dto.OrderItemDTO;
 import com.erplist.order.dto.OrderQueryDTO;
 import com.erplist.order.entity.Order;
@@ -21,7 +23,9 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -43,12 +47,17 @@ public class OrderServiceImpl implements OrderService {
         Long sid = dto.getSid() != null ? dto.getSid() : UserContext.getSid();
         order.setZid(zid);
         order.setSid(sid);
+        if (StringUtils.hasText(dto.getCountryCode())) {
+            order.setCountryCode(dto.getCountryCode());
+        }
         if (!StringUtils.hasText(order.getOrderNo())) {
             order.setOrderNo("ORD" + System.currentTimeMillis() + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
         }
         order.setOrderStatus(order.getOrderStatus() != null ? order.getOrderStatus() : 0);
         order.setPayStatus(order.getPayStatus() != null ? order.getPayStatus() : 0);
         order.setDiscountAmount(order.getDiscountAmount() != null ? order.getDiscountAmount() : java.math.BigDecimal.ZERO);
+        order.setPromotionDiscountAmount(order.getPromotionDiscountAmount() != null ? order.getPromotionDiscountAmount() : java.math.BigDecimal.ZERO);
+        order.setTaxAmount(order.getTaxAmount() != null ? order.getTaxAmount() : java.math.BigDecimal.ZERO);
         orderMapper.insert(order);
 
         if (dto.getItems() != null && !dto.getItems().isEmpty()) {
@@ -59,6 +68,9 @@ public class OrderServiceImpl implements OrderService {
                 item.setOrderNo(order.getOrderNo());
                 item.setZid(zid);
                 item.setSid(sid);
+                if (itemDto.getCompanyProductId() != null) {
+                    item.setCompanyProductId(itemDto.getCompanyProductId());
+                }
                 if (item.getTotalPrice() == null && item.getPrice() != null && item.getQuantity() != null) {
                     item.setTotalPrice(item.getPrice().multiply(new java.math.BigDecimal(item.getQuantity())));
                 }
@@ -69,12 +81,24 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public Order getOrderById(Long id) {
+    public OrderDetailVO getOrderById(Long id) {
         Order order = orderMapper.selectById(id);
         if (order == null) {
             throw new BusinessException("订单不存在");
         }
-        return order;
+        OrderDetailVO vo = new OrderDetailVO();
+        BeanUtils.copyProperties(order, vo);
+        LambdaQueryWrapper<OrderItem> itemWrapper = new LambdaQueryWrapper<>();
+        itemWrapper.eq(OrderItem::getOrderId, id).orderByAsc(OrderItem::getId);
+        List<OrderItem> itemList = orderItemMapper.selectList(itemWrapper);
+        List<OrderItemDTO> itemDtos = new ArrayList<>();
+        for (OrderItem item : itemList) {
+            OrderItemDTO dto = new OrderItemDTO();
+            BeanUtils.copyProperties(item, dto);
+            itemDtos.add(dto);
+        }
+        vo.setItems(itemDtos);
+        return vo;
     }
 
     @Override
@@ -124,6 +148,9 @@ public class OrderServiceImpl implements OrderService {
         if (queryDTO.getPayStatus() != null) {
             wrapper.eq(Order::getPayStatus, queryDTO.getPayStatus());
         }
+        if (StringUtils.hasText(queryDTO.getCountryCode())) {
+            wrapper.eq(Order::getCountryCode, queryDTO.getCountryCode());
+        }
         wrapper.orderByDesc(Order::getCreateTime);
         return orderMapper.selectPage(page, wrapper);
     }
@@ -133,5 +160,25 @@ public class OrderServiceImpl implements OrderService {
         String effectiveZid = StringUtils.hasText(zid) ? zid : UserContext.getZid();
         Long effectiveSid = sid != null ? sid : UserContext.getSid();
         return orderItemMapper.selectSalesTimeSeries(effectiveZid, effectiveSid, startDate, endDate, skuId);
+    }
+
+    private static final Map<String, String> COUNTRY_NAME_MAP = new HashMap<String, String>() {{
+        put("US", "美国"); put("DE", "德国"); put("UK", "英国"); put("FR", "法国"); put("IT", "意大利");
+        put("ES", "西班牙"); put("JP", "日本"); put("CA", "加拿大"); put("AU", "澳大利亚"); put("IN", "印度");
+        put("MX", "墨西哥"); put("BR", "巴西"); put("NL", "荷兰"); put("PL", "波兰"); put("TR", "土耳其");
+        put("CN", "中国"); put("KR", "韩国"); put("SG", "新加坡"); put("AE", "阿联酋"); put("SA", "沙特");
+    }};
+
+    @Override
+    public List<CountryOrderCountDTO> getOrderStatsByCountry(String zid, Long sid, LocalDate startDate, LocalDate endDate) {
+        String effectiveZid = StringUtils.hasText(zid) ? zid : UserContext.getZid();
+        Long effectiveSid = sid != null ? sid : UserContext.getSid();
+        List<CountryOrderCountDTO> list = orderMapper.selectOrderCountByCountry(effectiveZid, effectiveSid, startDate, endDate);
+        for (CountryOrderCountDTO dto : list) {
+            if (dto.getCountryCode() != null && dto.getCountryName() == null) {
+                dto.setCountryName(COUNTRY_NAME_MAP.getOrDefault(dto.getCountryCode().toUpperCase(), dto.getCountryCode()));
+            }
+        }
+        return list;
     }
 }

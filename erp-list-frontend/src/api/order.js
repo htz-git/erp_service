@@ -23,5 +23,10 @@ export const orderApi = {
 
   deleteOrder(id) {
     return request.delete(`/orders/${id}`)
+  },
+
+  /** 按国家统计订单数，供首页地图使用。params: zid, sid, startDate, endDate */
+  getOrderStatsByCountry(params) {
+    return request.get('/orders/stats-by-country', { params })
   }
 }

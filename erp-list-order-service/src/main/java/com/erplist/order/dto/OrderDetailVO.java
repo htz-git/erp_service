@@ -2,41 +2,38 @@ package com.erplist.order.dto;
 
 import lombok.Data;
 
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 订单 DTO（创建/更新）
+ * 订单详情 VO（含订单头 + 订单明细 items）
  */
 @Data
-public class OrderDTO {
+public class OrderDetailVO {
     private Long id;
     private String orderNo;
-    @NotNull(message = "用户ID不能为空")
     private Long userId;
     private String zid;
     private Long sid;
-    /** 配送国家/地区代码（如 US、DE） */
     private String countryCode;
-    @NotNull(message = "订单总金额不能为空")
     private BigDecimal totalAmount;
     private BigDecimal discountAmount;
-    /** 促销折扣金额（仅记录展示） */
     private BigDecimal promotionDiscountAmount;
-    /** 税费（仅记录展示） */
     private BigDecimal taxAmount;
-    @NotNull(message = "实付金额不能为空")
     private BigDecimal payAmount;
     private Integer orderStatus;
     private Integer payStatus;
     private LocalDateTime payTime;
+    private LocalDateTime deliveryTime;
+    private LocalDateTime completeTime;
     private String receiverName;
     private String receiverPhone;
     private String receiverAddress;
     private String remark;
-    /** 订单明细 */
+    private LocalDateTime createTime;
+    private LocalDateTime updateTime;
+    private Integer deleted;
+    /** 订单明细（售卖记录：商品、单价、数量、小计） */
     private List<OrderItemDTO> items;
 }

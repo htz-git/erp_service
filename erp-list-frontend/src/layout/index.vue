@@ -37,10 +37,10 @@
             <span class="menu-label">订单</span>
           </span>
         </el-menu-item>
-        <el-menu-item index="/payment/list">
+        <el-menu-item index="/product/list">
           <span class="menu-item-inner">
-            <el-icon class="menu-icon"><CreditCard /></el-icon>
-            <span class="menu-label">支付</span>
+            <el-icon class="menu-icon"><Goods /></el-icon>
+            <span class="menu-label">商品</span>
           </span>
         </el-menu-item>
         <el-menu-item index="/purchase/list">
@@ -53,12 +53,6 @@
           <span class="menu-item-inner">
             <el-icon class="menu-icon"><Money /></el-icon>
             <span class="menu-label">退款</span>
-          </span>
-        </el-menu-item>
-        <el-menu-item index="/coupon/list">
-          <span class="menu-item-inner">
-            <el-icon class="menu-icon"><Ticket /></el-icon>
-            <span class="menu-label">优惠</span>
           </span>
         </el-menu-item>
         <el-menu-item index="/replenishment/list">
@@ -181,10 +175,9 @@ import {
   User,
   Shop,
   ShoppingBag,
-  CreditCard,
+  Goods,
   ShoppingCart,
   Money,
-  Ticket,
   Box,
   ArrowDown,
   Clock,

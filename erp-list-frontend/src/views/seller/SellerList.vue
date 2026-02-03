@@ -3,7 +3,8 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>店铺管理</span>
+          <span>授权店铺</span>
+          <span class="card-subtitle">创建并授权公司下店铺</span>
         </div>
       </template>
 
@@ -205,7 +206,8 @@ onMounted(() => {
 
 <style scoped>
 .seller-list-page { padding: 0; }
-.card-header { font-size: 16px; font-weight: 600; color: var(--text-primary); }
+.card-header { font-size: 16px; font-weight: 600; color: var(--text-primary); display: flex; flex-direction: column; gap: 4px; }
+.card-subtitle { font-size: 12px; font-weight: normal; color: var(--text-secondary); }
 .filter-section { margin-bottom: 16px; }
 .filter-form { margin: 0; }
 .table-section { margin-top: 12px; }

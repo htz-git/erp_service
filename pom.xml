@@ -15,8 +15,7 @@
         <module>erp-list-user-service</module>
         <module>erp-list-seller-service</module>
         <module>erp-list-order-service</module>
-        <module>erp-list-payment-service</module>
-        <module>erp-list-promotion-service</module>
+        <module>erp-list-product-service</module>
         <module>erp-list-purchase-service</module>
         <module>erp-list-refund-service</module>
         <module>erp-list-replenishment-service</module>

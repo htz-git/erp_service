@@ -20,6 +20,8 @@ public class OrderItem {
     private String orderNo;
     private String zid;
     private Long sid;
+    /** 关联公司商品ID（company_product.id），用于与平台商品配对 */
+    private Long companyProductId;
     private Long productId;
     private String productName;
     private String productImage;

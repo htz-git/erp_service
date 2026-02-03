@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.erplist.order.mapper.OrderMapper">
+
+    <!-- 按国家统计订单数，供首页地图使用 -->
+    <select id="selectOrderCountByCountry" resultType="com.erplist.api.dto.CountryOrderCountDTO">
+        SELECT
+            country_code AS countryCode,
+            COUNT(*) AS orderCount
+        FROM `order`
+        WHERE deleted = 0
+        AND country_code IS NOT NULL
+        AND country_code != ''
+        <if test="zid != null and zid != ''">
+            AND zid = #{zid}
+        </if>
+        <if test="sid != null">
+            AND sid = #{sid}
+        </if>
+        <if test="startDate != null">
+            AND DATE(create_time) &gt;= #{startDate}
+        </if>
+        <if test="endDate != null">
+            AND DATE(create_time) &lt;= #{endDate}
+        </if>
+        GROUP BY country_code
+        ORDER BY orderCount DESC
+    </select>
+</mapper>

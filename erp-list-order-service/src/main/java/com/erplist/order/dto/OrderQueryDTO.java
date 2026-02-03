@@ -11,6 +11,8 @@ public class OrderQueryDTO {
     private Long userId;
     private String zid;
     private Long sid;
+    /** 国家代码筛选 */
+    private String countryCode;
     private Integer orderStatus;
     private Integer payStatus;
     private Integer pageNum = 1;

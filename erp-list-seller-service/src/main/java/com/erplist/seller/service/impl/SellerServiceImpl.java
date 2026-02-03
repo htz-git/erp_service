@@ -31,6 +31,10 @@ public class SellerServiceImpl implements SellerService {
         if (userId != null) {
             seller.setUserId(userId);
         }
+        String zid = StringUtils.hasText(dto.getZid()) ? dto.getZid() : UserContext.getZid();
+        if (zid != null) {
+            seller.setZid(zid);
+        }
         seller.setSid(null); // 插入后由 id 填充
         seller.setStatus(seller.getStatus() != null ? seller.getStatus() : 1);
         sellerMapper.insert(seller);
@@ -55,6 +59,9 @@ public class SellerServiceImpl implements SellerService {
             throw new BusinessException("店铺不存在");
         }
         BeanUtils.copyProperties(dto, seller, "id", "sid", "createTime");
+        if (StringUtils.hasText(dto.getZid())) {
+            seller.setZid(dto.getZid());
+        }
         sellerMapper.updateById(seller);
         return seller;
     }
@@ -72,6 +79,10 @@ public class SellerServiceImpl implements SellerService {
     public Page<Seller> querySellers(SellerQueryDTO queryDTO) {
         Page<Seller> page = new Page<>(queryDTO.getPageNum(), queryDTO.getPageSize());
         LambdaQueryWrapper<Seller> wrapper = new LambdaQueryWrapper<>();
+        String zid = StringUtils.hasText(queryDTO.getZid()) ? queryDTO.getZid() : UserContext.getZid();
+        if (StringUtils.hasText(zid)) {
+            wrapper.eq(Seller::getZid, zid);
+        }
         Long userId = queryDTO.getUserId() != null ? queryDTO.getUserId() : UserContext.getUserId();
         if (userId != null) {
             wrapper.eq(Seller::getUserId, userId);

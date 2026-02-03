@@ -72,6 +72,7 @@ import { useUserStore } from '@/store/user'
 import { useDashboardStore } from '@/store/dashboard'
 import * as echarts from 'echarts'
 import worldJson from '@/assets/geo/world.json'
+import { orderApi } from '@/api/order'
 import {
   Key,
   Lock,
@@ -121,28 +122,87 @@ const guideSteps = [
   }
 ]
 
-const orderDateRange = ref('2026-01-06 ~ 2026-02-02')
+const orderDateRange = ref('')
 const orderType = ref('sale')
 const orderPeriod = ref('28')
 
-// 订单分布地图（ECharts 世界地图）
+// 国家代码 -> [经度, 纬度]，与后端 COUNTRY_NAME_MAP 对应
+const COUNTRY_COORDS = {
+  US: [-95.7129, 37.0902],
+  DE: [10.4515, 51.1657],
+  UK: [-3.436, 55.3781],
+  FR: [2.2137, 46.2276],
+  IT: [12.5674, 41.8719],
+  ES: [-3.7492, 40.4637],
+  JP: [138.2529, 36.2048],
+  CA: [-106.3468, 56.1304],
+  AU: [133.7751, -25.2744],
+  IN: [78.9629, 20.5937],
+  MX: [-102.5528, 23.6345],
+  BR: [-51.9253, -14.235],
+  NL: [5.2913, 52.1326],
+  PL: [19.1451, 51.9194],
+  TR: [35.2433, 38.9637],
+  CN: [104.1954, 35.8617],
+  KR: [127.7669, 35.9078],
+  SG: [103.8198, 1.3521],
+  AE: [53.8478, 23.4241],
+  SA: [45.0792, 23.8859]
+}
+
 const mapRef = ref(null)
 let mapChart = null
 let resizeHandler = null
+const mapLoading = ref(false)
+
+function getDateRangeByPeriod(days) {
+  const end = new Date()
+  const start = new Date()
+  start.setDate(start.getDate() - parseInt(days, 10))
+  return {
+    startDate: start.toISOString().slice(0, 10),
+    endDate: end.toISOString().slice(0, 10)
+  }
+}
+
+async function fetchMapData() {
+  const { startDate, endDate } = getDateRangeByPeriod(orderPeriod.value)
+  orderDateRange.value = `${startDate} ~ ${endDate}`
+  const user = currentUser.value
+  const params = { startDate, endDate }
+  if (user?.zid) params.zid = user.zid
+  if (user?.sid != null) params.sid = user.sid
+  mapLoading.value = true
+  try {
+    const res = await orderApi.getOrderStatsByCountry(params)
+    const list = res?.data ?? []
+    const scatterData = list
+      .filter((item) => item.countryCode && COUNTRY_COORDS[item.countryCode.toUpperCase()])
+      .map((item) => {
+        const code = item.countryCode.toUpperCase()
+        const coords = COUNTRY_COORDS[code]
+        const name = item.countryName || item.countryCode
+        const count = item.orderCount ?? 0
+        return { name, value: [coords[0], coords[1], count] }
+      })
+    return scatterData
+  } finally {
+    mapLoading.value = false
+  }
+}
+
+function setMapSeriesData(scatterData) {
+  if (!mapChart) return
+  mapChart.setOption({
+    series: [{ data: scatterData }]
+  })
+}
 
 function initOrderMap() {
   if (!mapRef.value) return
   try {
     echarts.registerMap('world', worldJson)
-
     mapChart = echarts.init(mapRef.value)
-    const scatterData = [
-      { name: '美国', value: [-95.7129, 37.0902, 120] },
-      { name: '英国', value: [-3.436, 55.3781, 85] },
-      { name: '德国', value: [10.4515, 51.1657, 76] },
-      { name: '日本', value: [138.2529, 36.2048, 95] },
-      { name: '中国', value: [104.1954, 35.8617, 200] }
-    ]
     const option = {
       tooltip: {
         trigger: 'item',
@@ -171,7 +231,7 @@ function initOrderMap() {
           name: '订单分布',
           type: 'scatter',
           coordinateSystem: 'geo',
-          data: scatterData,
+          data: [],
           symbolSize: (val) => {
             const v = val[2] || 10
             return Math.max(10, Math.min(28, v / 6))
@@ -201,8 +261,14 @@ function initOrderMap() {
   }
 }
 
-onMounted(() => {
+async function loadMapData() {
+  const scatterData = await fetchMapData()
+  setMapSeriesData(scatterData)
+}
+
+onMounted(async () => {
   initOrderMap()
+  await loadMapData()
 })
 
 onUnmounted(() => {
@@ -214,10 +280,7 @@ onUnmounted(() => {
 })
 
 watch([orderType, orderPeriod], () => {
-  if (mapChart && mapRef.value) {
-    // 切换销售/退货、周期时可在此更新数据
-    mapChart.setOption({ series: [{ data: mapChart.getOption().series[0].data }] })
-  }
+  loadMapData()
 })
 </script>
 

@@ -37,6 +37,9 @@
               <el-option label="已支付" :value="1" />
             </el-select>
           </el-form-item>
+          <el-form-item label="国家">
+            <el-input v-model="filterForm.countryCode" placeholder="国家代码如 US" clearable style="width: 100px" />
+          </el-form-item>
           <el-form-item>
             <el-button type="primary" :loading="loading" @click="handleSearch">查询</el-button>
             <el-button @click="handleReset">重置</el-button>
@@ -58,11 +61,18 @@
           <el-table-column prop="userId" label="用户ID" width="90" />
           <el-table-column prop="zid" label="zid" width="80" />
           <el-table-column prop="sid" label="sid" width="80" />
+          <el-table-column prop="countryCode" label="国家" width="80" />
           <el-table-column prop="totalAmount" label="总金额" width="100" align="right">
             <template #default="{ row }">{{ row.totalAmount ?? '-' }}</template>
           </el-table-column>
           <el-table-column prop="payAmount" label="实付" width="100" align="right">
             <template #default="{ row }">{{ row.payAmount ?? '-' }}</template>
+          </el-table-column>
+          <el-table-column prop="promotionDiscountAmount" label="促销折扣金额" width="120" align="right">
+            <template #default="{ row }">{{ row.promotionDiscountAmount ?? '-' }}</template>
+          </el-table-column>
+          <el-table-column prop="taxAmount" label="税费" width="100" align="right">
+            <template #default="{ row }">{{ row.taxAmount ?? '-' }}</template>
           </el-table-column>
           <el-table-column prop="orderStatus" label="订单状态" width="90" align="center">
             <template #default="{ row }">{{ orderStatusText(row.orderStatus) }}</template>
@@ -72,8 +82,49 @@
           </el-table-column>
           <el-table-column prop="receiverName" label="收货人" width="100" />
           <el-table-column prop="createTime" label="创建时间" width="170" />
+          <el-table-column label="操作" width="80" fixed="right">
+            <template #default="{ row }">
+              <el-button type="primary" link @click="openDetail(row.id)">详情</el-button>
+            </template>
+          </el-table-column>
         </el-table>
       </div>
+
+      <!-- 订单详情抽屉 -->
+      <el-drawer
+        v-model="detailVisible"
+        title="订单详情"
+        size="520"
+        destroy-on-close
+      >
+        <div v-loading="detailLoading" class="order-detail-content">
+          <template v-if="orderDetail">
+            <el-descriptions :column="1" border size="small">
+              <el-descriptions-item label="订单号">{{ orderDetail.orderNo }}</el-descriptions-item>
+              <el-descriptions-item label="国家">{{ orderDetail.countryCode ?? '-' }}</el-descriptions-item>
+              <el-descriptions-item label="总金额">{{ orderDetail.totalAmount ?? '-' }}</el-descriptions-item>
+              <el-descriptions-item label="实付">{{ orderDetail.payAmount ?? '-' }}</el-descriptions-item>
+              <el-descriptions-item label="促销折扣金额">{{ orderDetail.promotionDiscountAmount ?? '-' }}</el-descriptions-item>
+              <el-descriptions-item label="税费">{{ orderDetail.taxAmount ?? '-' }}</el-descriptions-item>
+              <el-descriptions-item label="订单状态">{{ orderStatusText(orderDetail.orderStatus) }}</el-descriptions-item>
+              <el-descriptions-item label="收货人">{{ orderDetail.receiverName }}</el-descriptions-item>
+              <el-descriptions-item label="收货地址">{{ orderDetail.receiverAddress }}</el-descriptions-item>
+            </el-descriptions>
+            <div class="detail-items-title">订单明细（售卖商品）</div>
+            <el-table :data="orderDetail.items ?? []" border size="small" style="margin-top: 8px">
+              <el-table-column prop="productName" label="商品名称" min-width="120" show-overflow-tooltip />
+              <el-table-column prop="skuCode" label="SKU" width="100" />
+              <el-table-column prop="price" label="单价" width="90" align="right">
+                <template #default="{ row }">{{ row.price ?? '-' }}</template>
+              </el-table-column>
+              <el-table-column prop="quantity" label="数量" width="70" align="right" />
+              <el-table-column prop="totalPrice" label="小计" width="90" align="right">
+                <template #default="{ row }">{{ row.totalPrice ?? '-' }}</template>
+              </el-table-column>
+            </el-table>
+          </template>
+        </div>
+      </el-drawer>
 
       <!-- 分页 -->
       <div class="pagination-section">
@@ -104,7 +155,8 @@ const filterForm = ref({
   zid: '',
   sid: null,
   orderStatus: null,
-  payStatus: null
+  payStatus: null,
+  countryCode: ''
 })
 const pagination = reactive({
   pageNum: 1,
@@ -132,6 +184,7 @@ function buildParams() {
   if (filterForm.value.sid != null && filterForm.value.sid !== '') p.sid = filterForm.value.sid
   if (filterForm.value.orderStatus !== null && filterForm.value.orderStatus !== '') p.orderStatus = filterForm.value.orderStatus
   if (filterForm.value.payStatus !== null && filterForm.value.payStatus !== '') p.payStatus = filterForm.value.payStatus
+  if (filterForm.value.countryCode) p.countryCode = filterForm.value.countryCode
   return p
 }
 
@@ -161,10 +214,29 @@ function handleReset() {
     zid: '',
     sid: null,
     orderStatus: null,
-    payStatus: null
+    payStatus: null,
+    countryCode: ''
   }
   pagination.pageNum = 1
   fetchList()
+}
+
+const detailVisible = ref(false)
+const detailLoading = ref(false)
+const orderDetail = ref(null)
+
+async function openDetail(id) {
+  detailVisible.value = true
+  orderDetail.value = null
+  detailLoading.value = true
+  try {
+    const res = await orderApi.getOrderById(id)
+    orderDetail.value = res.data ?? null
+  } catch (e) {
+    ElMessage.error(e.message || '加载详情失败')
+  } finally {
+    detailLoading.value = false
+  }
 }
 
 onMounted(() => {
@@ -179,4 +251,6 @@ onMounted(() => {
 .filter-form { margin: 0; }
 .table-section { margin-top: 12px; }
 .pagination-section { margin-top: 16px; display: flex; justify-content: flex-end; }
+.order-detail-content { padding: 0 8px; }
+.detail-items-title { font-weight: 600; margin-top: 16px; margin-bottom: 4px; font-size: 14px; }
 </style>

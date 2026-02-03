@@ -21,8 +21,14 @@ public class Order {
     private Long userId;
     private String zid;
     private Long sid;
+    /** 配送国家/地区代码（如 ISO 3166-1 alpha-2） */
+    private String countryCode;
     private BigDecimal totalAmount;
     private BigDecimal discountAmount;
+    /** 促销折扣金额（仅记录展示） */
+    private BigDecimal promotionDiscountAmount;
+    /** 税费（仅记录展示） */
+    private BigDecimal taxAmount;
     private BigDecimal payAmount;
     private Integer orderStatus;
     private Integer payStatus;

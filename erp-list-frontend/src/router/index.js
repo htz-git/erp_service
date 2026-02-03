@@ -63,15 +63,15 @@ const routes = [
     ]
   },
   {
-    path: '/payment',
+    path: '/product',
     component: Layout,
     meta: { requiresAuth: true },
     children: [
       {
         path: 'list',
-        name: 'PaymentList',
-        component: () => import('@/views/payment/PaymentList.vue'),
-        meta: { title: '支付管理', icon: 'CreditCard' }
+        name: 'ProductList',
+        component: () => import('@/views/product/ProductList.vue'),
+        meta: { title: '商品管理', icon: 'Goods' }
       }
     ]
   },
@@ -98,19 +98,6 @@ const routes = [
         name: 'RefundList',
         component: () => import('@/views/refund/RefundList.vue'),
         meta: { title: '退款管理', icon: 'Money' }
-      }
-    ]
-  },
-  {
-    path: '/coupon',
-    component: Layout,
-    meta: { requiresAuth: true },
-    children: [
-      {
-        path: 'list',
-        name: 'CouponList',
-        component: () => import('@/views/coupon/CouponList.vue'),
-        meta: { title: '优惠券管理', icon: 'Ticket' }
       }
     ]
   },
