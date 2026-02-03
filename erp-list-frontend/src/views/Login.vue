@@ -107,11 +107,17 @@ const handleLogin = async () => {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--main-bg);
 }
 
 .login-card {
   width: 400px;
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
+}
+
+.login-card :deep(.el-card__header) {
+  border-bottom: 1px solid var(--header-border);
 }
 
 .card-header {
@@ -120,7 +126,9 @@ const handleLogin = async () => {
 
 .card-header h2 {
   margin: 0;
-  color: #333;
+  color: var(--text-primary);
+  font-size: 18px;
+  font-weight: 600;
 }
 </style>
 

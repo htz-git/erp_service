@@ -1,0 +1,55 @@
+/* ERP List 主题变量 - 参考仪表盘风格 */
+:root {
+  /* 侧栏 */
+  --sidebar-bg: #1a2332;
+  --sidebar-bg-logo: #141c28;
+  --sidebar-text: #bfcbd9;
+  --sidebar-text-active: #409eff;
+  --sidebar-text-hover: #fff;
+
+  /* 主色 */
+  --primary-color: #409eff;
+  --primary-light: #79bbff;
+
+  /* 主区 */
+  --main-bg: #f5f6fa;
+  --header-bg: #fff;
+  --header-border: #e6e6e6;
+
+  /* 卡片 */
+  --card-bg: #fff;
+  --card-radius: 8px;
+  --card-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  --card-shadow-hover: 0 2px 12px rgba(0, 0, 0, 0.1);
+
+  /* 文字 */
+  --text-primary: #303133;
+  --text-regular: #606266;
+  --text-secondary: #909399;
+
+  /* 间距 */
+  --page-padding: 20px;
+  --card-gap: 16px;
+  --section-gap: 24px;
+}
+
+/* Element Plus 主题覆盖：与全局变量一致 */
+:root {
+  --el-color-primary: var(--primary-color);
+  --el-color-primary-light-3: var(--primary-light);
+  --el-border-radius-base: var(--card-radius);
+  --el-border-radius-small: calc(var(--card-radius) - 2px);
+}
+
+/* 主区卡片统一：列表页等 */
+.main-content .el-card {
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
+}
+
+.main-content .el-card .el-card__header {
+  border-bottom: 1px solid var(--header-border);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
