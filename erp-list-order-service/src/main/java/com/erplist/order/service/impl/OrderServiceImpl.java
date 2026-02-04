@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -148,8 +149,14 @@ public class OrderServiceImpl implements OrderService {
         if (queryDTO.getPayStatus() != null) {
             wrapper.eq(Order::getPayStatus, queryDTO.getPayStatus());
         }
-        if (StringUtils.hasText(queryDTO.getCountryCode())) {
-            wrapper.eq(Order::getCountryCode, queryDTO.getCountryCode());
+        if (queryDTO.getCountryCodes() != null && !queryDTO.getCountryCodes().isEmpty()) {
+            wrapper.in(Order::getCountryCode, queryDTO.getCountryCodes());
+        }
+        if (queryDTO.getCreateTimeStart() != null) {
+            wrapper.ge(Order::getCreateTime, queryDTO.getCreateTimeStart().atStartOfDay());
+        }
+        if (queryDTO.getCreateTimeEnd() != null) {
+            wrapper.le(Order::getCreateTime, queryDTO.getCreateTimeEnd().atTime(LocalTime.MAX));
         }
         wrapper.orderByDesc(Order::getCreateTime);
         return orderMapper.selectPage(page, wrapper);

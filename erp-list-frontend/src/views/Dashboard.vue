@@ -75,7 +75,6 @@ import worldJson from '@/assets/geo/world.json'
 import { orderApi } from '@/api/order'
 import {
   Key,
-  Lock,
   Plus,
   Connection,
   MoreFilled,
@@ -95,12 +94,6 @@ const guideSteps = [
     desc: '授权店铺客服邮箱等信息，开启数字化管理。',
     icon: Key,
     required: true
-  },
-  {
-    title: '账号权限配置',
-    desc: '分配具体账号权限，便于内部员工协作。',
-    icon: Lock,
-    required: false
   },
   {
     title: '产品信息维护',

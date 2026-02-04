@@ -2,7 +2,7 @@ import request from '@/utils/request'
 
 /**
  * 订单 API（对接后端 /orders）
- * 查询参数与 OrderQueryDTO 一致：orderNo, userId, zid, sid, orderStatus, payStatus, pageNum, pageSize
+ * 查询参数与 OrderQueryDTO 一致：orderNo, userId, zid, sid, orderStatus, payStatus, countryCodes(多选), createTimeStart, createTimeEnd, pageNum, pageSize
  */
 export const orderApi = {
   queryOrders(params) {

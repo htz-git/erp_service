@@ -38,7 +38,34 @@
             </el-select>
           </el-form-item>
           <el-form-item label="国家">
-            <el-input v-model="filterForm.countryCode" placeholder="国家代码如 US" clearable style="width: 100px" />
+            <el-select
+              v-model="filterForm.countryCodes"
+              placeholder="请选择国家（可多选）"
+              clearable
+              multiple
+              collapse-tags
+              collapse-tags-tooltip
+              style="width: 200px"
+            >
+              <el-option
+                v-for="item in countryOptions"
+                :key="item.code"
+                :label="item.label"
+                :value="item.code"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="创建时间">
+            <el-date-picker
+              v-model="filterForm.createTimeRange"
+              type="daterange"
+              range-separator="至"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              value-format="YYYY-MM-DD"
+              clearable
+              style="width: 240px"
+            />
           </el-form-item>
           <el-form-item>
             <el-button type="primary" :loading="loading" @click="handleSearch">查询</el-button>
@@ -156,8 +183,16 @@ const filterForm = ref({
   sid: null,
   orderStatus: null,
   payStatus: null,
-  countryCode: ''
+  countryCodes: [],
+  createTimeRange: null
 })
+
+const countryOptions = [
+  { code: 'US', label: '美国' }, { code: 'DE', label: '德国' }, { code: 'UK', label: '英国' }, { code: 'FR', label: '法国' }, { code: 'IT', label: '意大利' },
+  { code: 'ES', label: '西班牙' }, { code: 'JP', label: '日本' }, { code: 'CA', label: '加拿大' }, { code: 'AU', label: '澳大利亚' }, { code: 'IN', label: '印度' },
+  { code: 'MX', label: '墨西哥' }, { code: 'BR', label: '巴西' }, { code: 'NL', label: '荷兰' }, { code: 'PL', label: '波兰' }, { code: 'TR', label: '土耳其' },
+  { code: 'CN', label: '中国' }, { code: 'KR', label: '韩国' }, { code: 'SG', label: '新加坡' }, { code: 'AE', label: '阿联酋' }, { code: 'SA', label: '沙特' }
+]
 const pagination = reactive({
   pageNum: 1,
   pageSize: 10,
@@ -184,7 +219,12 @@ function buildParams() {
   if (filterForm.value.sid != null && filterForm.value.sid !== '') p.sid = filterForm.value.sid
   if (filterForm.value.orderStatus !== null && filterForm.value.orderStatus !== '') p.orderStatus = filterForm.value.orderStatus
   if (filterForm.value.payStatus !== null && filterForm.value.payStatus !== '') p.payStatus = filterForm.value.payStatus
-  if (filterForm.value.countryCode) p.countryCode = filterForm.value.countryCode
+  if (filterForm.value.countryCodes && filterForm.value.countryCodes.length) p.countryCodes = filterForm.value.countryCodes
+  const range = filterForm.value.createTimeRange
+  if (range && Array.isArray(range) && range.length === 2) {
+    p.createTimeStart = range[0]
+    p.createTimeEnd = range[1]
+  }
   return p
 }
 
@@ -215,7 +255,8 @@ function handleReset() {
     sid: null,
     orderStatus: null,
     payStatus: null,
-    countryCode: ''
+    countryCodes: [],
+    createTimeRange: null
   }
   pagination.pageNum = 1
   fetchList()
