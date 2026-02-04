@@ -2,6 +2,7 @@ package com.erplist.replenishment.service.impl;
 
 import com.erplist.api.client.OrderClient;
 import com.erplist.api.dto.SalesTimeSeriesItemDTO;
+import com.erplist.common.exception.BusinessException;
 import com.erplist.common.result.Result;
 import com.erplist.common.utils.UserContext;
 import com.erplist.replenishment.dto.ReplenishmentSuggestionDTO;
@@ -12,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
 import java.util.*;
@@ -34,6 +36,9 @@ public class ReplenishmentSuggestionServiceImpl implements ReplenishmentSuggesti
     @Override
     public List<ReplenishmentSuggestionDTO> getSuggestions(ReplenishmentSuggestionQueryDTO queryDTO) {
         String zid = UserContext.getZid();
+        if (!StringUtils.hasText(zid)) {
+            throw new BusinessException("未登录或缺少租户信息，仅能查看当前公司下的补货建议");
+        }
         Long sid = (queryDTO != null && queryDTO.getSid() != null) ? queryDTO.getSid() : UserContext.getSid();
 
         LocalDate endDate = queryDTO != null && queryDTO.getEndDate() != null
@@ -125,7 +130,6 @@ public class ReplenishmentSuggestionServiceImpl implements ReplenishmentSuggesti
         }
     }
 
-    @SuppressWarnings("unchecked")
     private static List<Double> toDoubleList(Object o) {
         if (o == null || !(o instanceof List)) return Collections.emptyList();
         List<Double> out = new ArrayList<>();

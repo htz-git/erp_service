@@ -32,6 +32,11 @@ public class UserServiceImpl implements UserService {
     
     @Override
     public User createUser(UserDTO userDTO) {
+        String zid = com.erplist.common.utils.UserContext.getZid();
+        if (!StringUtils.hasText(zid)) {
+            throw new BusinessException("未登录或缺少租户信息，无法创建用户");
+        }
+
         // 检查用户名是否已存在
         User existUser = userMapper.selectOne(
             new LambdaQueryWrapper<User>()
@@ -54,6 +59,7 @@ public class UserServiceImpl implements UserService {
         
         User user = new User();
         BeanUtils.copyProperties(userDTO, user);
+        user.setZid(zid);
         user.setStatus(1); // 默认启用
         // TODO: 密码加密，建议使用BCryptPasswordEncoder
         // 暂时直接存储，实际项目中必须加密
@@ -117,14 +123,14 @@ public class UserServiceImpl implements UserService {
     
     @Override
     public Page<User> queryUsers(UserQueryDTO queryDTO) {
+        String zid = com.erplist.common.utils.UserContext.getZid();
+        if (!StringUtils.hasText(zid)) {
+            throw new BusinessException("未登录或缺少租户信息，仅能查看当前公司下的用户");
+        }
+
         Page<User> page = new Page<>(queryDTO.getPageNum(), queryDTO.getPageSize());
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
-        
-        // 根据zid过滤（多租户隔离）
-        String zid = com.erplist.common.utils.UserContext.getZid();
-        if (zid != null) {
-            wrapper.eq(User::getZid, zid);
-        }
+        wrapper.eq(User::getZid, zid);
         
         if (StringUtils.hasText(queryDTO.getUsername())) {
             wrapper.like(User::getUsername, queryDTO.getUsername());

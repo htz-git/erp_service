@@ -38,10 +38,13 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public PurchaseOrder createPurchaseOrder(PurchaseOrderDTO dto) {
+        String zid = UserContext.getZid();
+        if (!StringUtils.hasText(zid)) {
+            throw new BusinessException("未登录或缺少租户信息，仅能创建当前公司下的采购单");
+        }
+        Long sid = dto.getSid() != null ? dto.getSid() : UserContext.getSid();
         PurchaseOrder order = new PurchaseOrder();
         BeanUtils.copyProperties(dto, order, "id", "items");
-        String zid = dto.getZid() != null ? dto.getZid() : UserContext.getZid();
-        Long sid = dto.getSid() != null ? dto.getSid() : UserContext.getSid();
         order.setZid(zid);
         order.setSid(sid);
         if (!StringUtils.hasText(order.getPurchaseNo())) {
@@ -80,11 +83,16 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         if (order == null) {
             throw new BusinessException("采购单不存在");
         }
+        ensureSameZid(order.getZid());
         return order;
     }
 
     @Override
     public List<PurchaseItem> getItemsByPurchaseId(Long purchaseId) {
+        PurchaseOrder order = purchaseOrderMapper.selectById(purchaseId);
+        if (order != null) {
+            ensureSameZid(order.getZid());
+        }
         LambdaQueryWrapper<PurchaseItem> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(PurchaseItem::getPurchaseId, purchaseId).orderByAsc(PurchaseItem::getId);
         return purchaseItemMapper.selectList(wrapper);
@@ -97,6 +105,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         if (order == null) {
             throw new BusinessException("采购单不存在");
         }
+        ensureSameZid(order.getZid());
         BeanUtils.copyProperties(dto, order, "id", "purchaseNo", "createTime");
         if (order.getSupplierName() == null && order.getSupplierId() != null) {
             Supplier supplier = supplierMapper.selectById(order.getSupplierId());
@@ -114,18 +123,20 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         if (order == null) {
             throw new BusinessException("采购单不存在");
         }
+        ensureSameZid(order.getZid());
         purchaseOrderMapper.deleteById(id);
     }
 
     @Override
     public Page<PurchaseOrder> queryPurchaseOrders(PurchaseOrderQueryDTO queryDTO) {
+        String zid = UserContext.getZid();
+        if (!StringUtils.hasText(zid)) {
+            throw new BusinessException("未登录或缺少租户信息，仅能查看当前公司下的采购单");
+        }
+        Long sid = queryDTO.getSid() != null ? queryDTO.getSid() : UserContext.getSid();
         Page<PurchaseOrder> page = new Page<>(queryDTO.getPageNum(), queryDTO.getPageSize());
         LambdaQueryWrapper<PurchaseOrder> wrapper = new LambdaQueryWrapper<>();
-        String zid = queryDTO.getZid() != null ? queryDTO.getZid() : UserContext.getZid();
-        Long sid = queryDTO.getSid() != null ? queryDTO.getSid() : UserContext.getSid();
-        if (StringUtils.hasText(zid)) {
-            wrapper.eq(PurchaseOrder::getZid, zid);
-        }
+        wrapper.eq(PurchaseOrder::getZid, zid);
         if (sid != null) {
             wrapper.eq(PurchaseOrder::getSid, sid);
         }
@@ -143,5 +154,12 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         }
         wrapper.orderByDesc(PurchaseOrder::getCreateTime);
         return purchaseOrderMapper.selectPage(page, wrapper);
+    }
+
+    private void ensureSameZid(String entityZid) {
+        String currentZid = UserContext.getZid();
+        if (!StringUtils.hasText(currentZid) || !currentZid.equals(entityZid)) {
+            throw new BusinessException("无权限操作该采购单");
+        }
     }
 }

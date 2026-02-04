@@ -36,11 +36,14 @@ public class ReplenishmentOrderServiceImpl implements ReplenishmentOrderService 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public ReplenishmentOrder createReplenishmentOrder(ReplenishmentOrderDTO dto) {
+        String zid = UserContext.getZid();
+        if (!StringUtils.hasText(zid)) {
+            throw new BusinessException("未登录或缺少租户信息，仅能创建当前公司下的补货单");
+        }
+        Long sid = dto.getSid() != null ? dto.getSid() : UserContext.getSid();
         ReplenishmentOrder order = new ReplenishmentOrder();
         BeanUtils.copyProperties(dto, order, "id", "items");
         order.setId(null);
-        String zid = dto.getZid() != null ? dto.getZid() : UserContext.getZid();
-        Long sid = dto.getSid() != null ? dto.getSid() : UserContext.getSid();
         order.setZid(zid);
         order.setSid(sid);
         if (!StringUtils.hasText(order.getReplenishmentNo())) {
@@ -74,11 +77,16 @@ public class ReplenishmentOrderServiceImpl implements ReplenishmentOrderService 
         if (order == null) {
             throw new BusinessException("补货单不存在");
         }
+        ensureSameZid(order.getZid());
         return order;
     }
 
     @Override
     public List<ReplenishmentItem> getItemsByReplenishmentId(Long replenishmentId) {
+        ReplenishmentOrder order = replenishmentOrderMapper.selectById(replenishmentId);
+        if (order != null) {
+            ensureSameZid(order.getZid());
+        }
         LambdaQueryWrapper<ReplenishmentItem> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(ReplenishmentItem::getReplenishmentId, replenishmentId);
         return replenishmentItemMapper.selectList(wrapper);
@@ -91,6 +99,7 @@ public class ReplenishmentOrderServiceImpl implements ReplenishmentOrderService 
         if (order == null) {
             throw new BusinessException("补货单不存在");
         }
+        ensureSameZid(order.getZid());
         BeanUtils.copyProperties(dto, order, "id", "replenishmentNo", "createTime", "deleted", "items");
         replenishmentOrderMapper.updateById(order);
 
@@ -124,18 +133,20 @@ public class ReplenishmentOrderServiceImpl implements ReplenishmentOrderService 
         if (order == null) {
             throw new BusinessException("补货单不存在");
         }
+        ensureSameZid(order.getZid());
         replenishmentOrderMapper.deleteById(id);
     }
 
     @Override
     public Page<ReplenishmentOrder> queryReplenishmentOrders(ReplenishmentOrderQueryDTO queryDTO) {
+        String zid = UserContext.getZid();
+        if (!StringUtils.hasText(zid)) {
+            throw new BusinessException("未登录或缺少租户信息，仅能查看当前公司下的补货单");
+        }
+        Long sid = queryDTO.getSid() != null ? queryDTO.getSid() : UserContext.getSid();
         Page<ReplenishmentOrder> page = new Page<>(queryDTO.getPageNum(), queryDTO.getPageSize());
         LambdaQueryWrapper<ReplenishmentOrder> wrapper = new LambdaQueryWrapper<>();
-        String zid = queryDTO.getZid() != null ? queryDTO.getZid() : UserContext.getZid();
-        Long sid = queryDTO.getSid() != null ? queryDTO.getSid() : UserContext.getSid();
-        if (StringUtils.hasText(zid)) {
-            wrapper.eq(ReplenishmentOrder::getZid, zid);
-        }
+        wrapper.eq(ReplenishmentOrder::getZid, zid);
         if (sid != null) {
             wrapper.eq(ReplenishmentOrder::getSid, sid);
         }
@@ -157,5 +168,12 @@ public class ReplenishmentOrderServiceImpl implements ReplenishmentOrderService 
 
     private String generateReplenishmentNo() {
         return "RO" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")) + (int) (Math.random() * 1000);
+    }
+
+    private void ensureSameZid(String entityZid) {
+        String currentZid = UserContext.getZid();
+        if (!StringUtils.hasText(currentZid) || !currentZid.equals(entityZid)) {
+            throw new BusinessException("无权限操作该补货单");
+        }
     }
 }

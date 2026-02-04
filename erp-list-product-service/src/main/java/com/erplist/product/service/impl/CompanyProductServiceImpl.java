@@ -25,13 +25,14 @@ public class CompanyProductServiceImpl implements CompanyProductService {
 
     @Override
     public CompanyProduct create(CompanyProductDTO dto) {
+        String zid = UserContext.getZid();
+        if (!StringUtils.hasText(zid)) {
+            throw new BusinessException("未登录或缺少租户信息，仅能创建当前公司下的商品");
+        }
         CompanyProduct entity = new CompanyProduct();
         BeanUtils.copyProperties(dto, entity, "id", "createTime", "updateTime");
-        String zid = StringUtils.hasText(dto.getZid()) ? dto.getZid() : UserContext.getZid();
+        entity.setZid(zid);
         Long sid = dto.getSid() != null ? dto.getSid() : UserContext.getSid();
-        if (StringUtils.hasText(zid)) {
-            entity.setZid(zid);
-        }
         if (sid != null) {
             entity.setSid(sid);
         }
@@ -45,6 +46,7 @@ public class CompanyProductServiceImpl implements CompanyProductService {
         if (entity == null) {
             throw new BusinessException("商品不存在");
         }
+        ensureSameZid(entity.getZid());
         return entity;
     }
 
@@ -54,10 +56,9 @@ public class CompanyProductServiceImpl implements CompanyProductService {
         if (entity == null) {
             throw new BusinessException("商品不存在");
         }
+        ensureSameZid(entity.getZid());
         BeanUtils.copyProperties(dto, entity, "id", "createTime");
-        if (StringUtils.hasText(dto.getZid())) {
-            entity.setZid(dto.getZid());
-        }
+        entity.setZid(UserContext.getZid());
         if (dto.getSid() != null) {
             entity.setSid(dto.getSid());
         }
@@ -71,18 +72,20 @@ public class CompanyProductServiceImpl implements CompanyProductService {
         if (entity == null) {
             throw new BusinessException("商品不存在");
         }
+        ensureSameZid(entity.getZid());
         companyProductMapper.deleteById(id);
     }
 
     @Override
     public Page<CompanyProduct> query(CompanyProductQueryDTO queryDTO) {
+        String zid = UserContext.getZid();
+        if (!StringUtils.hasText(zid)) {
+            throw new BusinessException("未登录或缺少租户信息，仅能查看当前公司下的商品");
+        }
         Page<CompanyProduct> page = new Page<>(queryDTO.getPageNum(), queryDTO.getPageSize());
         LambdaQueryWrapper<CompanyProduct> wrapper = new LambdaQueryWrapper<>();
-        String zid = StringUtils.hasText(queryDTO.getZid()) ? queryDTO.getZid() : UserContext.getZid();
+        wrapper.eq(CompanyProduct::getZid, zid);
         Long sid = queryDTO.getSid() != null ? queryDTO.getSid() : UserContext.getSid();
-        if (StringUtils.hasText(zid)) {
-            wrapper.eq(CompanyProduct::getZid, zid);
-        }
         if (sid != null) {
             wrapper.eq(CompanyProduct::getSid, sid);
         }
@@ -94,5 +97,12 @@ public class CompanyProductServiceImpl implements CompanyProductService {
         }
         wrapper.orderByDesc(CompanyProduct::getCreateTime);
         return companyProductMapper.selectPage(page, wrapper);
+    }
+
+    private void ensureSameZid(String entityZid) {
+        String currentZid = UserContext.getZid();
+        if (!StringUtils.hasText(currentZid) || !currentZid.equals(entityZid)) {
+            throw new BusinessException("无权限操作该商品");
+        }
     }
 }

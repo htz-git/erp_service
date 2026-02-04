@@ -27,10 +27,13 @@ public class RefundApplicationServiceImpl implements RefundApplicationService {
 
     @Override
     public RefundApplication createRefundApplication(RefundApplicationDTO dto) {
+        String zid = UserContext.getZid();
+        if (!StringUtils.hasText(zid)) {
+            throw new BusinessException("未登录或缺少租户信息，仅能创建当前公司下的退款申请");
+        }
+        Long sid = dto.getSid() != null ? dto.getSid() : UserContext.getSid();
         RefundApplication entity = new RefundApplication();
         BeanUtils.copyProperties(dto, entity);
-        String zid = dto.getZid() != null ? dto.getZid() : UserContext.getZid();
-        Long sid = dto.getSid() != null ? dto.getSid() : UserContext.getSid();
         entity.setZid(zid);
         entity.setSid(sid);
         if (!StringUtils.hasText(entity.getRefundNo())) {
@@ -47,6 +50,7 @@ public class RefundApplicationServiceImpl implements RefundApplicationService {
         if (entity == null) {
             throw new BusinessException("退款申请不存在");
         }
+        ensureSameZid(entity.getZid());
         return entity;
     }
 
@@ -56,6 +60,7 @@ public class RefundApplicationServiceImpl implements RefundApplicationService {
         if (entity == null) {
             throw new BusinessException("退款申请不存在");
         }
+        ensureSameZid(entity.getZid());
         BeanUtils.copyProperties(dto, entity, "id", "refundNo", "createTime");
         refundApplicationMapper.updateById(entity);
         return entity;
@@ -67,18 +72,20 @@ public class RefundApplicationServiceImpl implements RefundApplicationService {
         if (entity == null) {
             throw new BusinessException("退款申请不存在");
         }
+        ensureSameZid(entity.getZid());
         refundApplicationMapper.deleteById(id);
     }
 
     @Override
     public Page<RefundApplication> queryRefundApplications(RefundApplicationQueryDTO queryDTO) {
+        String zid = UserContext.getZid();
+        if (!StringUtils.hasText(zid)) {
+            throw new BusinessException("未登录或缺少租户信息，仅能查看当前公司下的退款申请");
+        }
+        Long sid = queryDTO.getSid() != null ? queryDTO.getSid() : UserContext.getSid();
         Page<RefundApplication> page = new Page<>(queryDTO.getPageNum(), queryDTO.getPageSize());
         LambdaQueryWrapper<RefundApplication> wrapper = new LambdaQueryWrapper<>();
-        String zid = queryDTO.getZid() != null ? queryDTO.getZid() : UserContext.getZid();
-        Long sid = queryDTO.getSid() != null ? queryDTO.getSid() : UserContext.getSid();
-        if (StringUtils.hasText(zid)) {
-            wrapper.eq(RefundApplication::getZid, zid);
-        }
+        wrapper.eq(RefundApplication::getZid, zid);
         if (sid != null) {
             wrapper.eq(RefundApplication::getSid, sid);
         }
@@ -102,5 +109,12 @@ public class RefundApplicationServiceImpl implements RefundApplicationService {
         }
         wrapper.orderByDesc(RefundApplication::getCreateTime);
         return refundApplicationMapper.selectPage(page, wrapper);
+    }
+
+    private void ensureSameZid(String entityZid) {
+        String currentZid = UserContext.getZid();
+        if (!StringUtils.hasText(currentZid) || !currentZid.equals(entityZid)) {
+            throw new BusinessException("无权限操作该退款申请");
+        }
     }
 }

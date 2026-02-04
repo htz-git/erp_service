@@ -26,6 +26,9 @@
                 <el-tag v-if="step.required" size="small" type="danger">必做</el-tag>
               </div>
               <div class="step-desc">{{ step.desc }}</div>
+              <router-link v-if="step.link" :to="step.link" class="step-link">
+                {{ step.linkText || '前往' }}
+              </router-link>
             </div>
           </div>
         </div>
@@ -93,7 +96,9 @@ const guideSteps = [
     title: '基础数据授权',
     desc: '授权店铺客服邮箱等信息，开启数字化管理。',
     icon: Key,
-    required: true
+    required: true,
+    link: '/user/list?open=create',
+    linkText: '去创建用户'
   },
   {
     title: '产品信息维护',
@@ -372,6 +377,16 @@ watch([orderType, orderPeriod], () => {
 .step-desc {
   font-size: 12px;
   color: var(--text-secondary);
+}
+.step-link {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--el-color-primary);
+  text-decoration: none;
+}
+.step-link:hover {
+  text-decoration: underline;
   line-height: 1.4;
 }
 

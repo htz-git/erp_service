@@ -25,16 +25,17 @@ public class SellerServiceImpl implements SellerService {
 
     @Override
     public Seller createSeller(SellerDTO dto) {
+        String zid = UserContext.getZid();
+        if (!StringUtils.hasText(zid)) {
+            throw new BusinessException("未登录或缺少租户信息，仅能创建当前公司下的店铺");
+        }
         Seller seller = new Seller();
         BeanUtils.copyProperties(dto, seller);
         Long userId = dto.getUserId() != null ? dto.getUserId() : UserContext.getUserId();
         if (userId != null) {
             seller.setUserId(userId);
         }
-        String zid = StringUtils.hasText(dto.getZid()) ? dto.getZid() : UserContext.getZid();
-        if (zid != null) {
-            seller.setZid(zid);
-        }
+        seller.setZid(zid);
         seller.setSid(null); // 插入后由 id 填充
         seller.setStatus(seller.getStatus() != null ? seller.getStatus() : 1);
         sellerMapper.insert(seller);
@@ -49,6 +50,7 @@ public class SellerServiceImpl implements SellerService {
         if (seller == null) {
             throw new BusinessException("店铺不存在");
         }
+        ensureSameZid(seller.getZid());
         return seller;
     }
 
@@ -58,10 +60,9 @@ public class SellerServiceImpl implements SellerService {
         if (seller == null) {
             throw new BusinessException("店铺不存在");
         }
+        ensureSameZid(seller.getZid());
         BeanUtils.copyProperties(dto, seller, "id", "sid", "createTime");
-        if (StringUtils.hasText(dto.getZid())) {
-            seller.setZid(dto.getZid());
-        }
+        seller.setZid(UserContext.getZid());
         sellerMapper.updateById(seller);
         return seller;
     }
@@ -72,17 +73,19 @@ public class SellerServiceImpl implements SellerService {
         if (seller == null) {
             throw new BusinessException("店铺不存在");
         }
+        ensureSameZid(seller.getZid());
         sellerMapper.deleteById(id);
     }
 
     @Override
     public Page<Seller> querySellers(SellerQueryDTO queryDTO) {
+        String zid = UserContext.getZid();
+        if (!StringUtils.hasText(zid)) {
+            throw new BusinessException("未登录或缺少租户信息，仅能查看当前公司下的店铺");
+        }
         Page<Seller> page = new Page<>(queryDTO.getPageNum(), queryDTO.getPageSize());
         LambdaQueryWrapper<Seller> wrapper = new LambdaQueryWrapper<>();
-        String zid = StringUtils.hasText(queryDTO.getZid()) ? queryDTO.getZid() : UserContext.getZid();
-        if (StringUtils.hasText(zid)) {
-            wrapper.eq(Seller::getZid, zid);
-        }
+        wrapper.eq(Seller::getZid, zid);
         Long userId = queryDTO.getUserId() != null ? queryDTO.getUserId() : UserContext.getUserId();
         if (userId != null) {
             wrapper.eq(Seller::getUserId, userId);
@@ -106,10 +109,18 @@ public class SellerServiceImpl implements SellerService {
         if (seller == null) {
             throw new BusinessException("店铺不存在");
         }
+        ensureSameZid(seller.getZid());
         if (status != 0 && status != 1) {
             throw new BusinessException("状态值不合法");
         }
         seller.setStatus(status);
         sellerMapper.updateById(seller);
+    }
+
+    private void ensureSameZid(String entityZid) {
+        String currentZid = UserContext.getZid();
+        if (!StringUtils.hasText(currentZid) || !currentZid.equals(entityZid)) {
+            throw new BusinessException("无权限操作该店铺");
+        }
     }
 }

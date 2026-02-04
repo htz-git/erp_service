@@ -42,10 +42,13 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Order createOrder(OrderDTO dto) {
+        String zid = UserContext.getZid();
+        if (!StringUtils.hasText(zid)) {
+            throw new BusinessException("未登录或缺少租户信息，仅能创建当前公司下的订单");
+        }
+        Long sid = dto.getSid() != null ? dto.getSid() : UserContext.getSid();
         Order order = new Order();
         BeanUtils.copyProperties(dto, order, "id", "items");
-        String zid = dto.getZid() != null ? dto.getZid() : UserContext.getZid();
-        Long sid = dto.getSid() != null ? dto.getSid() : UserContext.getSid();
         order.setZid(zid);
         order.setSid(sid);
         if (StringUtils.hasText(dto.getCountryCode())) {
@@ -87,6 +90,7 @@ public class OrderServiceImpl implements OrderService {
         if (order == null) {
             throw new BusinessException("订单不存在");
         }
+        ensureSameZid(order.getZid());
         OrderDetailVO vo = new OrderDetailVO();
         BeanUtils.copyProperties(order, vo);
         LambdaQueryWrapper<OrderItem> itemWrapper = new LambdaQueryWrapper<>();
@@ -108,6 +112,7 @@ public class OrderServiceImpl implements OrderService {
         if (order == null) {
             throw new BusinessException("订单不存在");
         }
+        ensureSameZid(order.getZid());
         BeanUtils.copyProperties(dto, order, "id", "orderNo", "createTime");
         orderMapper.updateById(order);
         return order;
@@ -119,21 +124,20 @@ public class OrderServiceImpl implements OrderService {
         if (order == null) {
             throw new BusinessException("订单不存在");
         }
+        ensureSameZid(order.getZid());
         orderMapper.deleteById(id);
     }
 
     @Override
     public Page<Order> queryOrders(OrderQueryDTO queryDTO) {
+        String zid = UserContext.getZid();
+        if (!StringUtils.hasText(zid)) {
+            throw new BusinessException("未登录或缺少租户信息，仅能查看当前公司下的订单");
+        }
+        Long sid = queryDTO.getSid() != null ? queryDTO.getSid() : UserContext.getSid();
         Page<Order> page = new Page<>(queryDTO.getPageNum(), queryDTO.getPageSize());
         LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<>();
-        String zid = queryDTO.getZid() != null ? queryDTO.getZid() : UserContext.getZid();
-        Long sid = queryDTO.getSid();
-        if (sid == null) {
-            sid = UserContext.getSid();
-        }
-        if (StringUtils.hasText(zid)) {
-            wrapper.eq(Order::getZid, zid);
-        }
+        wrapper.eq(Order::getZid, zid);
         if (sid != null) {
             wrapper.eq(Order::getSid, sid);
         }
@@ -165,6 +169,9 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public List<SalesTimeSeriesItemDTO> getSalesTimeSeries(String zid, Long sid, LocalDate startDate, LocalDate endDate, Long skuId) {
         String effectiveZid = StringUtils.hasText(zid) ? zid : UserContext.getZid();
+        if (!StringUtils.hasText(effectiveZid)) {
+            throw new BusinessException("未登录或缺少租户信息");
+        }
         Long effectiveSid = sid != null ? sid : UserContext.getSid();
         return orderItemMapper.selectSalesTimeSeries(effectiveZid, effectiveSid, startDate, endDate, skuId);
     }
@@ -179,6 +186,9 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public List<CountryOrderCountDTO> getOrderStatsByCountry(String zid, Long sid, LocalDate startDate, LocalDate endDate) {
         String effectiveZid = StringUtils.hasText(zid) ? zid : UserContext.getZid();
+        if (!StringUtils.hasText(effectiveZid)) {
+            throw new BusinessException("未登录或缺少租户信息");
+        }
         Long effectiveSid = sid != null ? sid : UserContext.getSid();
         List<CountryOrderCountDTO> list = orderMapper.selectOrderCountByCountry(effectiveZid, effectiveSid, startDate, endDate);
         for (CountryOrderCountDTO dto : list) {
@@ -187,5 +197,12 @@ public class OrderServiceImpl implements OrderService {
             }
         }
         return list;
+    }
+
+    private void ensureSameZid(String entityZid) {
+        String currentZid = UserContext.getZid();
+        if (!StringUtils.hasText(currentZid) || !currentZid.equals(entityZid)) {
+            throw new BusinessException("无权限操作该订单");
+        }
     }
 }

@@ -137,8 +137,11 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { userApi } from '@/api/user'
+
+const route = useRoute()
 
 const loading = ref(false)
 const list = ref([])
@@ -308,6 +311,9 @@ async function handleDelete(row) {
 
 onMounted(() => {
   fetchList()
+  if (route.query.open === 'create') {
+    handleAdd()
+  }
 })
 </script>
 
