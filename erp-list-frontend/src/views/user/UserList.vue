@@ -44,7 +44,11 @@
         >
           <el-table-column prop="id" label="ID" width="80" />
           <el-table-column prop="username" label="用户名" width="120" />
-          <el-table-column prop="realName" label="姓名" width="100" />
+          <el-table-column label="姓名" width="100">
+            <template #default="{ row }">
+              {{ row.realName || row.real_name || '-' }}
+            </template>
+          </el-table-column>
           <el-table-column prop="phone" label="手机号" width="120" />
           <el-table-column prop="email" label="邮箱" min-width="160" show-overflow-tooltip />
           <el-table-column prop="status" label="状态" width="80" align="center">

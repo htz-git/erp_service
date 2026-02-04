@@ -101,7 +101,7 @@
           <el-dropdown @command="handleCommand">
             <span class="user-info">
               <el-avatar :size="28" class="user-avatar">{{ userInitial }}</el-avatar>
-              {{ currentUser?.realName || currentUser?.username || '用户' }}
+              {{ currentUser?.realName || currentUser?.real_name || currentUser?.username || '用户' }}
               <el-icon class="el-icon--right"><ArrowDown /></el-icon>
             </span>
             <template #dropdown>
@@ -258,7 +258,7 @@ function updateTimes() {
 const activeMenu = computed(() => route.path)
 const currentUser = computed(() => userStore.currentUser())
 const userInitial = computed(() => {
-  const name = currentUser.value?.realName || currentUser.value?.username || '用'
+  const name = currentUser.value?.realName || currentUser.value?.real_name || currentUser.value?.username || '用'
   return name.charAt(0)
 })
 

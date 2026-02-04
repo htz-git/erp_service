@@ -22,10 +22,18 @@ app.use(pinia)
 app.use(router)
 app.use(ElementPlus, { locale: zhCn })
 
-// 初始化认证状态
-const userStore = useUserStore()
-userStore.initAuth()
-
-app.mount('#app')
+// 初始化认证：从 localStorage 恢复 token，若有 token 则用后端校验，失败则跳登录
+;(async () => {
+  const userStore = useUserStore()
+  userStore.initAuth()
+  if (userStore.isAuthenticated()) {
+    await userStore.fetchAndSetUser()
+    if (!userStore.currentUser()) {
+      userStore.logout()
+      router.push('/login')
+    }
+  }
+  app.mount('#app')
+})()
 
 

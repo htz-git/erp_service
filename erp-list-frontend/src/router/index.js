@@ -121,20 +121,23 @@ const router = createRouter({
   routes
 })
 
-// 路由守卫
-router.beforeEach((to, from, next) => {
+// 路由守卫：需登录路由必须通过后端校验 token，失败则跳转登录
+router.beforeEach(async (to, from, next) => {
   const userStore = useUserStore()
-  
-  // 如果路由需要认证
+
   if (to.meta.requiresAuth) {
     if (!userStore.isAuthenticated()) {
-      // 未登录，跳转到登录页
       next('/login')
-    } else {
-      next()
+      return
     }
+    // 有 token 时进入需登录页面前必须用后端校验；失败则 clearUser，currentUser 为空
+    await userStore.fetchAndSetUser()
+    if (!userStore.currentUser()) {
+      next('/login')
+      return
+    }
+    next()
   } else if (to.path === '/login') {
-    // 如果已经登录，访问登录页时跳转到首页
     if (userStore.isAuthenticated()) {
       next('/')
     } else {

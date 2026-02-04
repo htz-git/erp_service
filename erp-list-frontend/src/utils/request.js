@@ -2,20 +2,29 @@ import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/store/user'
 
+const baseURL = import.meta.env.VITE_API_BASE
+  ? import.meta.env.VITE_API_BASE + '/api'
+  : '/api'
+
 const service = axios.create({
-  baseURL: '/api',
+  baseURL,
   timeout: 10000
 })
 
 // 请求拦截器
 service.interceptors.request.use(
   config => {
-    // 添加token到请求头
     const userStore = useUserStore()
+    // 添加 token
     const token = userStore.token
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`
     }
+    // 从 store 或 localStorage 带上 user-id、user-zid，供下游服务设置 UserContext（不依赖网关解析）
+    const userId = userStore.getUserIdForHeader?.()
+    const zid = userStore.getZidForHeader?.()
+    if (userId) config.headers['user-id'] = userId
+    if (zid) config.headers['user-zid'] = zid
     return config
   },
   error => {
