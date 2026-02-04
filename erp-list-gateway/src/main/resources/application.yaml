@@ -11,6 +11,13 @@ spring:
             - Path=/api/users/**
           filters:
             - StripPrefix=1
+        # 权限接口（用户服务）
+        - id: permission-service
+          uri: lb://erp-list-user-service
+          predicates:
+            - Path=/api/permissions
+          filters:
+            - StripPrefix=1
         # 店铺服务
         - id: seller-service
           uri: lb://erp-list-seller-service

@@ -59,9 +59,10 @@
             </template>
           </el-table-column>
           <el-table-column prop="createTime" label="创建时间" width="170" />
-          <el-table-column label="操作" width="220" fixed="right">
+          <el-table-column label="操作" width="280" fixed="right">
             <template #default="{ row }">
               <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
+              <el-button type="primary" link size="small" @click="handleOpenPermission(row)">权限</el-button>
               <el-button
                 v-if="row.status === 0"
                 type="success"
@@ -99,6 +100,59 @@
         />
       </div>
     </el-card>
+
+    <!-- 权限弹窗 -->
+    <el-dialog
+      v-model="permissionDialogVisible"
+      :title="'用户权限 - ' + (currentPermissionUser?.username || '')"
+      width="560px"
+      destroy-on-close
+      @close="closePermissionDialog"
+    >
+      <div v-loading="permissionLoading">
+        <div class="permission-section">
+          <div class="section-title">当前权限</div>
+          <div v-if="userPermissions.length === 0" class="empty-tip">暂无权限，可点击下方「增加权限」添加</div>
+          <div v-else class="permission-tags">
+            <el-tag
+              v-for="p in userPermissions"
+              :key="p.id"
+              class="permission-tag"
+              closable
+              @close="handleRemovePermission(p)"
+            >
+              {{ p.permissionName || p.permission_name }} ({{ p.permissionCode || p.permission_code }})
+            </el-tag>
+          </div>
+        </div>
+        <div class="permission-section">
+          <div class="section-title">增加权限</div>
+          <el-select
+            v-model="addPermissionIds"
+            multiple
+            placeholder="选择要添加的权限"
+            style="width: 100%"
+            :loading="allPermissionsLoading"
+          >
+            <el-option
+              v-for="p in availablePermissions"
+              :key="p.id"
+              :label="(p.permissionName || p.permission_name) + ' (' + (p.permissionCode || p.permission_code) + ')'"
+              :value="p.id"
+            />
+          </el-select>
+          <el-button
+            type="primary"
+            :loading="addPermissionLoading"
+            style="margin-top: 10px"
+            :disabled="!addPermissionIds || addPermissionIds.length === 0"
+            @click="handleAddPermissions"
+          >
+            确定添加
+          </el-button>
+        </div>
+      </div>
+    </el-dialog>
 
     <!-- 新增/编辑弹窗 -->
     <el-dialog
@@ -140,7 +194,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { userApi } from '@/api/user'
@@ -149,6 +203,20 @@ const route = useRoute()
 
 const loading = ref(false)
 const list = ref([])
+
+// 权限弹窗
+const permissionDialogVisible = ref(false)
+const currentPermissionUser = ref(null)
+const userPermissions = ref([])
+const permissionLoading = ref(false)
+const allPermissions = ref([])
+const allPermissionsLoading = ref(false)
+const addPermissionIds = ref([])
+const addPermissionLoading = ref(false)
+const availablePermissions = computed(() => {
+  const haveIds = new Set((userPermissions.value || []).map((p) => p.id))
+  return (allPermissions.value || []).filter((p) => !haveIds.has(p.id))
+})
 const filterForm = ref({
   username: '',
   phone: '',
@@ -313,6 +381,63 @@ async function handleDelete(row) {
   }
 }
 
+async function handleOpenPermission(row) {
+  currentPermissionUser.value = row
+  userPermissions.value = []
+  addPermissionIds.value = []
+  permissionDialogVisible.value = true
+  permissionLoading.value = true
+  allPermissionsLoading.value = true
+  try {
+    const [userRes, allRes] = await Promise.all([
+      userApi.getUserPermissions(row.id),
+      userApi.listAllPermissions()
+    ])
+    userPermissions.value = userRes.data ?? []
+    allPermissions.value = allRes.data ?? []
+  } catch (e) {
+    ElMessage.error(e.message || '加载权限失败')
+    permissionDialogVisible.value = false
+  } finally {
+    permissionLoading.value = false
+    allPermissionsLoading.value = false
+  }
+}
+
+function closePermissionDialog() {
+  currentPermissionUser.value = null
+  userPermissions.value = []
+  allPermissions.value = []
+  addPermissionIds.value = []
+}
+
+async function handleRemovePermission(p) {
+  if (!currentPermissionUser.value) return
+  try {
+    await userApi.removeUserPermission(currentPermissionUser.value.id, p.id)
+    ElMessage.success('已移除')
+    userPermissions.value = userPermissions.value.filter((x) => x.id !== p.id)
+  } catch (e) {
+    ElMessage.error(e.message || '移除失败')
+  }
+}
+
+async function handleAddPermissions() {
+  if (!currentPermissionUser.value || !addPermissionIds.value?.length) return
+  addPermissionLoading.value = true
+  try {
+    await userApi.addUserPermissions(currentPermissionUser.value.id, addPermissionIds.value)
+    ElMessage.success('添加成功')
+    const res = await userApi.getUserPermissions(currentPermissionUser.value.id)
+    userPermissions.value = res.data ?? []
+    addPermissionIds.value = []
+  } catch (e) {
+    ElMessage.error(e.message || '添加失败')
+  } finally {
+    addPermissionLoading.value = false
+  }
+}
+
 onMounted(() => {
   fetchList()
   if (route.query.open === 'create') {
@@ -328,4 +453,9 @@ onMounted(() => {
 .filter-form { margin: 0; }
 .table-section { margin-top: 12px; }
 .pagination-section { margin-top: 16px; display: flex; justify-content: flex-end; }
+.permission-section { margin-bottom: 16px; }
+.permission-section .section-title { font-weight: bold; margin-bottom: 8px; }
+.permission-section .empty-tip { color: var(--el-text-color-secondary); font-size: 13px; }
+.permission-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.permission-tag { margin: 0; }
 </style>

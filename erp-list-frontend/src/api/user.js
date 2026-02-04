@@ -39,6 +39,26 @@ export const userApi = {
   // 启用/禁用用户
   updateStatus(id, status) {
     return request.put(`/users/${id}/status`, null, { params: { status } })
+  },
+
+  // 查询全部可选权限（供「增加权限」弹窗）
+  listAllPermissions() {
+    return request.get('/permissions')
+  },
+
+  // 查询用户拥有的权限列表
+  getUserPermissions(userId) {
+    return request.get(`/users/${userId}/permissions`)
+  },
+
+  // 为用户增加权限（permissionIds 数组）
+  addUserPermissions(userId, permissionIds) {
+    return request.post(`/users/${userId}/permissions`, permissionIds)
+  },
+
+  // 移除用户某条权限
+  removeUserPermission(userId, permissionId) {
+    return request.delete(`/users/${userId}/permissions/${permissionId}`)
   }
 }
 

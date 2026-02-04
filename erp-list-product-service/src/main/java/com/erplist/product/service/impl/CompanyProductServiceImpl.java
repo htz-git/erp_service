@@ -2,7 +2,9 @@ package com.erplist.product.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.erplist.api.client.UserClient;
 import com.erplist.common.exception.BusinessException;
+import com.erplist.common.result.Result;
 import com.erplist.common.utils.UserContext;
 import com.erplist.product.dto.CompanyProductDTO;
 import com.erplist.product.dto.CompanyProductQueryDTO;
@@ -21,13 +23,23 @@ import org.springframework.util.StringUtils;
 @RequiredArgsConstructor
 public class CompanyProductServiceImpl implements CompanyProductService {
 
+    private static final String PERMISSION_PRODUCT_CREATE = "product:create";
+
     private final CompanyProductMapper companyProductMapper;
+    private final UserClient userClient;
 
     @Override
     public CompanyProduct create(CompanyProductDTO dto) {
         String zid = UserContext.getZid();
         if (!StringUtils.hasText(zid)) {
             throw new BusinessException("未登录或缺少租户信息，仅能创建当前公司下的商品");
+        }
+        Long userId = UserContext.getUserId();
+        if (userId != null) {
+            Result<Boolean> res = userClient.hasPermission(userId, PERMISSION_PRODUCT_CREATE);
+            if (res == null || res.getData() == null || !res.getData()) {
+                throw new BusinessException(403, "无权限：需要商品新增/上传权限");
+            }
         }
         CompanyProduct entity = new CompanyProduct();
         BeanUtils.copyProperties(dto, entity, "id", "createTime", "updateTime");

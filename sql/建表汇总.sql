@@ -106,6 +106,30 @@ CREATE TABLE IF NOT EXISTS `role_permission` (
   KEY `idx_permission_id` (`permission_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='角色权限关联表';
 
+-- 用户-权限关联表（一账号多权限，本方案使用）
+CREATE TABLE IF NOT EXISTS `user_permission` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT 'ID',
+  `user_id` BIGINT NOT NULL COMMENT '用户ID',
+  `permission_id` BIGINT NOT NULL COMMENT '权限ID',
+  `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_permission` (`user_id`, `permission_id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_permission_id` (`permission_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户权限关联表';
+
+-- 权限初始数据（店铺增删、商品增删改、用户管理）
+INSERT INTO `permission` (`permission_name`, `permission_code`, `resource_type`, `sort_order`, `description`) VALUES
+('店铺-新增', 'seller:create', 'api', 10, '创建店铺'),
+('店铺-删除', 'seller:delete', 'api', 11, '删除店铺'),
+('商品-新增', 'product:create', 'api', 20, '创建/上传商品'),
+('商品-修改', 'product:update', 'api', 21, '修改商品'),
+('商品-删除', 'product:delete', 'api', 22, '删除商品'),
+('用户-新增', 'user:create', 'api', 30, '创建用户'),
+('用户-修改', 'user:update', 'api', 31, '修改用户'),
+('用户-删除', 'user:delete', 'api', 32, '删除用户')
+ON DUPLICATE KEY UPDATE `permission_name` = VALUES(`permission_name`);
+
 
 -- ===================== 第3段：店铺服务 erp_list_seller =====================
 

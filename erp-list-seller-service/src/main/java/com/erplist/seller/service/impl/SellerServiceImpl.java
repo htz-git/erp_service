@@ -2,7 +2,9 @@ package com.erplist.seller.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.erplist.api.client.UserClient;
 import com.erplist.common.exception.BusinessException;
+import com.erplist.common.result.Result;
 import com.erplist.common.utils.UserContext;
 import com.erplist.seller.dto.SellerDTO;
 import com.erplist.seller.dto.SellerQueryDTO;
@@ -21,7 +23,11 @@ import org.springframework.util.StringUtils;
 @RequiredArgsConstructor
 public class SellerServiceImpl implements SellerService {
 
+    private static final String PERMISSION_SELLER_CREATE = "seller:create";
+    private static final String PERMISSION_SELLER_DELETE = "seller:delete";
+
     private final SellerMapper sellerMapper;
+    private final UserClient userClient;
 
     @Override
     public Seller createSeller(SellerDTO dto) {
@@ -29,11 +35,18 @@ public class SellerServiceImpl implements SellerService {
         if (!StringUtils.hasText(zid)) {
             throw new BusinessException("未登录或缺少租户信息，仅能创建当前公司下的店铺");
         }
+        Long userId = UserContext.getUserId();
+        if (userId != null) {
+            Result<Boolean> res = userClient.hasPermission(userId, PERMISSION_SELLER_CREATE);
+            if (res == null || res.getData() == null || !res.getData()) {
+                throw new BusinessException(403, "无权限：需要店铺新增权限");
+            }
+        }
         Seller seller = new Seller();
         BeanUtils.copyProperties(dto, seller);
-        Long userId = dto.getUserId() != null ? dto.getUserId() : UserContext.getUserId();
-        if (userId != null) {
-            seller.setUserId(userId);
+        Long sellerUserId = dto.getUserId() != null ? dto.getUserId() : UserContext.getUserId();
+        if (sellerUserId != null) {
+            seller.setUserId(sellerUserId);
         }
         seller.setZid(zid);
         seller.setSid(null); // 插入后由 id 填充
@@ -74,6 +87,13 @@ public class SellerServiceImpl implements SellerService {
             throw new BusinessException("店铺不存在");
         }
         ensureSameZid(seller.getZid());
+        Long userId = UserContext.getUserId();
+        if (userId != null) {
+            Result<Boolean> res = userClient.hasPermission(userId, PERMISSION_SELLER_DELETE);
+            if (res == null || res.getData() == null || !res.getData()) {
+                throw new BusinessException(403, "无权限：需要店铺删除权限");
+            }
+        }
         sellerMapper.deleteById(id);
     }
 
