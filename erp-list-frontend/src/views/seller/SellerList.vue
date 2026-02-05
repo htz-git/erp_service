@@ -24,9 +24,6 @@
           <el-form-item label="用户ID">
             <el-input v-model.number="filterForm.userId" placeholder="用户ID" clearable style="width: 100px" />
           </el-form-item>
-          <el-form-item label="zid">
-            <el-input v-model="filterForm.zid" placeholder="zid" clearable style="width: 100px" />
-          </el-form-item>
           <el-form-item label="状态">
             <el-select v-model="filterForm.status" placeholder="全部" clearable style="width: 100px">
               <el-option label="启用" :value="1" />
@@ -36,6 +33,7 @@
           <el-form-item>
             <el-button type="primary" :loading="loading" @click="handleSearch">查询</el-button>
             <el-button @click="handleReset">重置</el-button>
+            <el-button type="primary" @click="goCreate">新增店铺</el-button>
           </el-form-item>
         </el-form>
       </div>
@@ -106,9 +104,15 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useUserStore } from '@/store/user'
 import { sellerApi } from '@/api/seller'
+
+const router = useRouter()
+const userStore = useUserStore()
+const currentZid = computed(() => userStore.currentZid())
 
 const loading = ref(false)
 const list = ref([])
@@ -116,7 +120,6 @@ const filterForm = ref({
   sellerName: '',
   platform: null,
   userId: null,
-  zid: '',
   status: null
 })
 const pagination = reactive({
@@ -130,10 +133,11 @@ function buildParams() {
     pageNum: pagination.pageNum,
     pageSize: pagination.pageSize
   }
+  const zid = currentZid.value
+  if (zid != null && zid !== '') p.zid = zid
   if (filterForm.value.sellerName) p.sellerName = filterForm.value.sellerName
   if (filterForm.value.platform) p.platform = filterForm.value.platform
   if (filterForm.value.userId != null && filterForm.value.userId !== '') p.userId = filterForm.value.userId
-  if (filterForm.value.zid) p.zid = filterForm.value.zid
   if (filterForm.value.status !== null && filterForm.value.status !== '') p.status = filterForm.value.status
   return p
 }
@@ -162,11 +166,14 @@ function handleReset() {
     sellerName: '',
     platform: null,
     userId: null,
-    zid: '',
     status: null
   }
   pagination.pageNum = 1
   fetchList()
+}
+
+function goCreate() {
+  router.push('/seller/create')
 }
 
 async function handleToggleStatus(row, status) {

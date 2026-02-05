@@ -97,7 +97,7 @@ const guideSteps = [
     desc: '授权店铺客服邮箱等信息，开启数字化管理。',
     icon: Key,
     required: true,
-    link: '/user/list?open=create',
+    link: '/user/create',
     linkText: '去创建用户'
   },
   {

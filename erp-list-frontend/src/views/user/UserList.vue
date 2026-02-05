@@ -195,11 +195,12 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { userApi } from '@/api/user'
 
 const route = useRoute()
+const router = useRouter()
 
 const loading = ref(false)
 const list = ref([])
@@ -296,17 +297,7 @@ function handleReset() {
 }
 
 function handleAdd() {
-  dialogTitle.value = '新增用户'
-  form.value = {
-    id: null,
-    username: '',
-    password: '',
-    realName: '',
-    phone: '',
-    email: '',
-    status: 1
-  }
-  dialogVisible.value = true
+  router.push('/user/create')
 }
 
 function handleEdit(row) {
@@ -440,9 +431,6 @@ async function handleAddPermissions() {
 
 onMounted(() => {
   fetchList()
-  if (route.query.open === 'create') {
-    handleAdd()
-  }
 })
 </script>
 

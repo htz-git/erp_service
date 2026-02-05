@@ -33,6 +33,12 @@ const routes = [
         name: 'UserList',
         component: () => import('@/views/user/UserList.vue'),
         meta: { title: '用户管理', icon: 'User' }
+      },
+      {
+        path: 'create',
+        name: 'UserCreate',
+        component: () => import('@/views/user/UserCreate.vue'),
+        meta: { title: '新增用户', icon: 'User' }
       }
     ]
   },
@@ -46,6 +52,12 @@ const routes = [
         name: 'SellerList',
         component: () => import('@/views/seller/SellerList.vue'),
         meta: { title: '店铺管理', icon: 'Shop' }
+      },
+      {
+        path: 'create',
+        name: 'SellerCreate',
+        component: () => import('@/views/seller/SellerCreate.vue'),
+        meta: { title: '新增店铺', icon: 'Shop' }
       }
     ]
   },

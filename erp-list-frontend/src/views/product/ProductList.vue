@@ -102,11 +102,21 @@
       @close="resetForm"
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
-        <el-form-item label="zid" prop="zid">
-          <el-input v-model="form.zid" placeholder="公司ID，不填则用当前用户" clearable />
-        </el-form-item>
-        <el-form-item label="sid" prop="sid">
-          <el-input v-model.number="form.sid" placeholder="店铺ID" clearable />
+        <el-form-item label="店铺" prop="sid">
+          <el-select
+            v-model="form.sid"
+            placeholder="请选择店铺"
+            clearable
+            style="width: 100%"
+            :loading="shopOptionsLoading"
+          >
+            <el-option
+              v-for="s in shopOptions"
+              :key="s.id"
+              :label="s.sellerName || s.seller_name || `店铺 ${s.id}`"
+              :value="s.id"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item label="商品名称" prop="productName">
           <el-input v-model="form.productName" placeholder="商品名称" />
@@ -204,7 +214,6 @@ const editId = ref(null)
 const submitLoading = ref(false)
 const formRef = ref(null)
 const form = ref({
-  zid: '',
   sid: null,
   productName: '',
   productCode: '',
@@ -220,7 +229,6 @@ const rules = {
 function resetForm() {
   editId.value = null
   form.value = {
-    zid: '',
     sid: null,
     productName: '',
     productCode: '',
@@ -236,7 +244,6 @@ function openDialog(row) {
   editId.value = row ? row.id : null
   if (row) {
     form.value = {
-      zid: row.zid ?? '',
       sid: row.sid ?? null,
       productName: row.productName ?? '',
       productCode: row.productCode ?? '',
@@ -259,7 +266,12 @@ async function handleSubmit() {
       await productApi.updateProduct(editId.value, form.value)
       ElMessage.success('更新成功')
     } else {
-      await productApi.createProduct(form.value)
+      const zid = currentZid.value
+      if (zid == null || zid === '') {
+        ElMessage.error('未获取到当前公司信息，无法创建商品')
+        return
+      }
+      await productApi.createProduct({ ...form.value, zid })
       ElMessage.success('创建成功')
     }
     dialogVisible.value = false
