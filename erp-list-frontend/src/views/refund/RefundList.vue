@@ -22,11 +22,21 @@
           <el-form-item label="用户ID">
             <el-input v-model.number="filterForm.userId" placeholder="用户ID" clearable style="width: 100px" />
           </el-form-item>
-          <el-form-item label="zid">
-            <el-input v-model="filterForm.zid" placeholder="zid" clearable style="width: 100px" />
-          </el-form-item>
-          <el-form-item label="sid">
-            <el-input v-model.number="filterForm.sid" placeholder="sid" clearable style="width: 80px" />
+          <el-form-item label="店铺">
+            <el-select
+              v-model="filterForm.sid"
+              placeholder="全部店铺"
+              clearable
+              style="width: 160px"
+              :loading="shopOptionsLoading"
+            >
+              <el-option
+                v-for="s in shopOptions"
+                :key="s.id"
+                :label="s.sellerName || s.seller_name || `店铺 ${s.id}`"
+                :value="s.id"
+              />
+            </el-select>
           </el-form-item>
           <el-form-item label="退款状态">
             <el-select v-model="filterForm.refundStatus" placeholder="全部" clearable style="width: 100px">
@@ -85,18 +95,25 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useUserStore } from '@/store/user'
 import { refundApi } from '@/api/refund'
+import { sellerApi } from '@/api/seller'
+
+const userStore = useUserStore()
+const currentZid = computed(() => userStore.currentZid())
 
 const loading = ref(false)
 const list = ref([])
+const shopOptions = ref([])
+const shopOptionsLoading = ref(false)
+
 const filterForm = ref({
   refundNo: '',
   orderNo: '',
   orderId: null,
   userId: null,
-  zid: '',
   sid: null,
   paymentId: null,
   refundStatus: null
@@ -117,11 +134,12 @@ function buildParams() {
     pageNum: pagination.pageNum,
     pageSize: pagination.pageSize
   }
+  const zid = currentZid.value
+  if (zid != null && zid !== '') p.zid = zid
   if (filterForm.value.refundNo) p.refundNo = filterForm.value.refundNo
   if (filterForm.value.orderNo) p.orderNo = filterForm.value.orderNo
   if (filterForm.value.orderId != null && filterForm.value.orderId !== '') p.orderId = filterForm.value.orderId
   if (filterForm.value.userId != null && filterForm.value.userId !== '') p.userId = filterForm.value.userId
-  if (filterForm.value.zid) p.zid = filterForm.value.zid
   if (filterForm.value.sid != null && filterForm.value.sid !== '') p.sid = filterForm.value.sid
   if (filterForm.value.paymentId != null && filterForm.value.paymentId !== '') p.paymentId = filterForm.value.paymentId
   if (filterForm.value.refundStatus !== null && filterForm.value.refundStatus !== '') p.refundStatus = filterForm.value.refundStatus
@@ -153,7 +171,6 @@ function handleReset() {
     orderNo: '',
     orderId: null,
     userId: null,
-    zid: '',
     sid: null,
     paymentId: null,
     refundStatus: null
@@ -162,7 +179,25 @@ function handleReset() {
   fetchList()
 }
 
+async function loadShopOptions() {
+  const zid = currentZid.value
+  if (zid == null || zid === '') {
+    shopOptions.value = []
+    return
+  }
+  shopOptionsLoading.value = true
+  try {
+    const res = await sellerApi.querySellers({ zid, pageNum: 1, pageSize: 500 })
+    shopOptions.value = res.data?.records ?? []
+  } catch {
+    shopOptions.value = []
+  } finally {
+    shopOptionsLoading.value = false
+  }
+}
+
 onMounted(() => {
+  loadShopOptions()
   fetchList()
 })
 </script>

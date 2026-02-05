@@ -112,18 +112,8 @@
           </el-dropdown>
         </div>
       </div>
-      <!-- 顶栏第二行：全局筛选 + 时区 -->
+      <!-- 顶栏第二行：时区等 -->
       <div class="header-row header-row-2">
-        <div class="filter-bar">
-          <el-select v-model="filterCountry" placeholder="全部国家" clearable style="width: 120px" />
-          <el-select v-model="filterShop" placeholder="全部店铺" clearable style="width: 120px" />
-          <el-select v-model="filterOwner" placeholder="Listing负责人" clearable style="width: 140px" />
-          <el-select v-model="filterCurrency" placeholder="货币" style="width: 90px">
-            <el-option label="USD" value="USD" />
-            <el-option label="CNY" value="CNY" />
-          </el-select>
-          <el-button @click="handleFilterReset">重置</el-button>
-        </div>
         <div class="timezone-bar">
           <span class="tz-item">北京 {{ timeBeijing }}</span>
           <span class="tz-item">英国 {{ timeUK }}</span>
@@ -135,7 +125,6 @@
               <el-dropdown-menu><el-dropdown-item>时区设置</el-dropdown-item></el-dropdown-menu>
             </template>
           </el-dropdown>
-          <el-button type="primary" link size="small">旧版</el-button>
         </div>
         <div class="header-actions-right">
           <el-dropdown trigger="click" @command="handleGuideCommand">
@@ -222,11 +211,6 @@ watch(
   { immediate: true }
 )
 
-const filterCountry = ref('')
-const filterShop = ref('')
-const filterOwner = ref('')
-const filterCurrency = ref('USD')
-
 const timeBeijing = ref('')
 const timeUK = ref('')
 const timeUSEast = ref('')
@@ -283,13 +267,6 @@ function closeTab(path) {
       router.push('/dashboard')
     }
   }
-}
-
-function handleFilterReset() {
-  filterCountry.value = ''
-  filterShop.value = ''
-  filterOwner.value = ''
-  filterCurrency.value = 'USD'
 }
 
 function onHelp() {
@@ -557,12 +534,6 @@ onUnmounted(() => {
 .user-avatar {
   background: var(--primary-color);
   color: #fff;
-}
-
-.filter-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
 }
 
 .timezone-bar {

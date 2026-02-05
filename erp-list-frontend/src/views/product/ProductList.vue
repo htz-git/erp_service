@@ -10,11 +10,21 @@
       <!-- 筛选区 -->
       <div class="filter-section">
         <el-form :model="filterForm" inline class="filter-form">
-          <el-form-item label="zid">
-            <el-input v-model="filterForm.zid" placeholder="zid" clearable style="width: 100px" />
-          </el-form-item>
-          <el-form-item label="sid">
-            <el-input v-model.number="filterForm.sid" placeholder="sid" clearable style="width: 100px" />
+          <el-form-item label="店铺">
+            <el-select
+              v-model="filterForm.sid"
+              placeholder="全部店铺"
+              clearable
+              style="width: 160px"
+              :loading="shopOptionsLoading"
+            >
+              <el-option
+                v-for="s in shopOptions"
+                :key="s.id"
+                :label="s.sellerName || s.seller_name || `店铺 ${s.id}`"
+                :value="s.id"
+              />
+            </el-select>
           </el-form-item>
           <el-form-item label="商品名称">
             <el-input v-model="filterForm.productName" placeholder="商品名称" clearable style="width: 160px" />
@@ -126,14 +136,21 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useUserStore } from '@/store/user'
 import { productApi } from '@/api/product'
+import { sellerApi } from '@/api/seller'
+
+const userStore = useUserStore()
+const currentZid = computed(() => userStore.currentZid())
 
 const loading = ref(false)
 const list = ref([])
+const shopOptions = ref([])
+const shopOptionsLoading = ref(false)
+
 const filterForm = ref({
-  zid: '',
   sid: null,
   productName: '',
   productCode: ''
@@ -149,7 +166,8 @@ function buildParams() {
     pageNum: pagination.pageNum,
     pageSize: pagination.pageSize
   }
-  if (filterForm.value.zid) p.zid = filterForm.value.zid
+  const zid = currentZid.value
+  if (zid != null && zid !== '') p.zid = zid
   if (filterForm.value.sid != null && filterForm.value.sid !== '') p.sid = filterForm.value.sid
   if (filterForm.value.productName) p.productName = filterForm.value.productName
   if (filterForm.value.productCode) p.productCode = filterForm.value.productCode
@@ -176,7 +194,7 @@ function handleSearch() {
 }
 
 function handleReset() {
-  filterForm.value = { zid: '', sid: null, productName: '', productCode: '' }
+  filterForm.value = { sid: null, productName: '', productCode: '' }
   pagination.pageNum = 1
   fetchList()
 }
@@ -268,7 +286,25 @@ async function handleDelete(row) {
   }
 }
 
+async function loadShopOptions() {
+  const zid = currentZid.value
+  if (zid == null || zid === '') {
+    shopOptions.value = []
+    return
+  }
+  shopOptionsLoading.value = true
+  try {
+    const res = await sellerApi.querySellers({ zid, pageNum: 1, pageSize: 500 })
+    shopOptions.value = res.data?.records ?? []
+  } catch {
+    shopOptions.value = []
+  } finally {
+    shopOptionsLoading.value = false
+  }
+}
+
 onMounted(() => {
+  loadShopOptions()
   fetchList()
 })
 </script>
