@@ -127,38 +127,100 @@
         </el-table>
       </div>
 
-      <!-- 订单详情抽屉 -->
+      <!-- 订单详情抽屉（参考居中卡片分块格式） -->
       <el-drawer
         v-model="detailVisible"
         title="订单详情"
-        size="520"
+        size="720"
         destroy-on-close
+        direction="rtl"
       >
-        <div v-loading="detailLoading" class="order-detail-content">
+        <div v-loading="detailLoading" class="order-detail-wrap">
           <template v-if="orderDetail">
-            <el-descriptions :column="1" border size="small">
-              <el-descriptions-item label="订单号">{{ orderDetail.orderNo }}</el-descriptions-item>
-              <el-descriptions-item label="国家">{{ orderDetail.countryCode ?? '-' }}</el-descriptions-item>
-              <el-descriptions-item label="总金额">{{ orderDetail.totalAmount ?? '-' }}</el-descriptions-item>
-              <el-descriptions-item label="实付">{{ orderDetail.payAmount ?? '-' }}</el-descriptions-item>
-              <el-descriptions-item label="促销折扣金额">{{ orderDetail.promotionDiscountAmount ?? '-' }}</el-descriptions-item>
-              <el-descriptions-item label="税费">{{ orderDetail.taxAmount ?? '-' }}</el-descriptions-item>
-              <el-descriptions-item label="订单状态">{{ orderStatusText(orderDetail.orderStatus) }}</el-descriptions-item>
-              <el-descriptions-item label="收货人">{{ orderDetail.receiverName }}</el-descriptions-item>
-              <el-descriptions-item label="收货地址">{{ orderDetail.receiverAddress }}</el-descriptions-item>
-            </el-descriptions>
-            <div class="detail-items-title">订单明细（售卖商品）</div>
-            <el-table :data="orderDetail.items ?? []" border size="small" style="margin-top: 8px">
-              <el-table-column prop="productName" label="商品名称" min-width="120" show-overflow-tooltip />
-              <el-table-column prop="skuCode" label="SKU" width="100" />
-              <el-table-column prop="price" label="单价" width="90" align="right">
-                <template #default="{ row }">{{ row.price ?? '-' }}</template>
-              </el-table-column>
-              <el-table-column prop="quantity" label="数量" width="70" align="right" />
-              <el-table-column prop="totalPrice" label="小计" width="90" align="right">
-                <template #default="{ row }">{{ row.totalPrice ?? '-' }}</template>
-              </el-table-column>
-            </el-table>
+            <!-- 顶部：订单号 + 状态标签 + 备注 -->
+            <el-card class="detail-card detail-card-header" shadow="never">
+              <div class="detail-order-no">{{ orderDetail.orderNo }}</div>
+              <div class="detail-tags">
+                <el-tag size="small" type="info">{{ orderStatusText(orderDetail.orderStatus) }}</el-tag>
+                <el-tag size="small" type="info">{{ payStatusText(orderDetail.payStatus) }}</el-tag>
+              </div>
+              <div v-if="orderDetail.remark" class="detail-remark">
+                <span class="detail-remark-label">备注：</span>{{ orderDetail.remark }}
+              </div>
+            </el-card>
+
+            <!-- 中部：基本信息 | 收货地址 两列 -->
+            <el-card class="detail-card" shadow="never">
+              <div class="detail-two-cols">
+                <div class="detail-col">
+                  <div class="detail-col-title">基本信息</div>
+                  <dl class="detail-dl">
+                    <dt>店铺</dt>
+                    <dd>店铺 ID: {{ orderDetail.sid ?? '-' }}</dd>
+                    <dt>国家/地区</dt>
+                    <dd>{{ countryLabel(orderDetail.countryCode) }}</dd>
+                    <dt>创建时间</dt>
+                    <dd>{{ orderDetail.createTime ?? '-' }}</dd>
+                  </dl>
+                </div>
+                <div class="detail-col">
+                  <div class="detail-col-title">收货地址</div>
+                  <dl class="detail-dl">
+                    <dt>收件人</dt>
+                    <dd>{{ orderDetail.receiverName ?? '-' }}</dd>
+                    <dt>电话</dt>
+                    <dd>{{ orderDetail.receiverPhone ?? '-' }}</dd>
+                    <dt>地址</dt>
+                    <dd>{{ orderDetail.receiverAddress ?? '-' }}</dd>
+                  </dl>
+                </div>
+              </div>
+            </el-card>
+
+            <!-- 商品信息：表格（图+名称+ID/SKU | 品名/SKU | 单价 | 数量 | 小计） -->
+            <el-card class="detail-card" shadow="never">
+              <div class="detail-col-title">商品信息</div>
+              <el-table :data="orderDetail.items ?? []" border size="small" class="detail-product-table">
+                <el-table-column label="商品信息" min-width="220">
+                  <template #default="{ row }">
+                    <div class="product-cell">
+                      <div class="product-cell-img">
+                        <el-image
+                          v-if="itemProductImage(row)"
+                          :src="itemProductImage(row)"
+                          fit="cover"
+                          class="product-img"
+                          :preview-src-list="[itemProductImage(row)]"
+                        />
+                        <div v-else class="product-img-placeholder">
+                          <el-icon :size="24"><Picture /></el-icon>
+                        </div>
+                      </div>
+                      <div class="product-cell-info">
+                        <div class="product-cell-name">{{ row.productName || '-' }}</div>
+                        <div class="product-cell-meta" v-if="row.productId">商品ID: {{ row.productId }}</div>
+                        <div class="product-cell-meta" v-if="row.companyProductId">公司商品ID: {{ row.companyProductId }}</div>
+                      </div>
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="skuCode" label="品名/SKU" width="120" show-overflow-tooltip />
+                <el-table-column label="单价" width="100" align="right">
+                  <template #default="{ row }">¥ {{ row.price ?? '-' }}</template>
+                </el-table-column>
+                <el-table-column label="数量" width="80" align="center">
+                  <template #default="{ row }">×{{ row.quantity ?? 0 }}</template>
+                </el-table-column>
+                <el-table-column label="小计" width="100" align="right">
+                  <template #default="{ row }">¥ {{ row.totalPrice ?? '-' }}</template>
+                </el-table-column>
+              </el-table>
+            </el-card>
+
+            <!-- 底部：订单总金额 -->
+            <div class="detail-footer">
+              订单总金额：<span class="detail-footer-amount">¥ {{ orderDetail.payAmount ?? orderDetail.totalAmount ?? '-' }}</span>
+            </div>
           </template>
         </div>
       </el-drawer>
@@ -223,6 +285,16 @@ function orderStatusText(v) {
 }
 function payStatusText(v) {
   return v != null ? payStatusMap[v] ?? v : '-'
+}
+
+function countryLabel(code) {
+  if (code == null || code === '') return '-'
+  const opt = countryOptions.find(c => c.code === code)
+  return opt ? `${opt.label} (${code})` : code
+}
+
+function itemProductImage(item) {
+  return item?.productImage || item?.product_image || ''
 }
 
 function buildParams() {
@@ -328,6 +400,107 @@ onMounted(() => {
 .filter-form { margin: 0; }
 .table-section { margin-top: 12px; }
 .pagination-section { margin-top: 16px; display: flex; justify-content: flex-end; }
-.order-detail-content { padding: 0 8px; }
-.detail-items-title { font-weight: 600; margin-top: 16px; margin-bottom: 4px; font-size: 14px; }
+
+/* 订单详情：居中卡片布局 */
+.order-detail-wrap {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 0 12px 24px;
+}
+.detail-card {
+  margin-bottom: 16px;
+}
+.detail-card :deep(.el-card__body) {
+  padding: 16px;
+}
+.detail-card-header { padding: 16px; }
+.detail-order-no {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary, #303133);
+  margin-bottom: 8px;
+}
+.detail-tags { display: flex; gap: 8px; margin-bottom: 8px; }
+.detail-remark {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+.detail-remark-label { color: var(--el-text-color-regular); }
+.detail-two-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+@media (max-width: 560px) {
+  .detail-two-cols { grid-template-columns: 1fr; }
+}
+.detail-col-title {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 10px;
+  color: var(--text-primary, #303133);
+}
+.detail-dl {
+  margin: 0;
+  font-size: 13px;
+}
+.detail-dl dt {
+  margin: 8px 0 2px;
+  color: var(--el-text-color-secondary);
+  font-weight: 400;
+}
+.detail-dl dd {
+  margin: 0;
+  color: var(--el-text-color-regular);
+}
+.detail-product-table { margin-top: 8px; }
+.product-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+}
+.product-cell-img {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.product-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.product-img-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--el-fill-color-light);
+  color: var(--el-text-color-placeholder);
+}
+.product-cell-info { min-width: 0; }
+.product-cell-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--el-text-color-regular);
+  margin-bottom: 4px;
+}
+.product-cell-meta {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+.detail-footer {
+  text-align: right;
+  font-size: 14px;
+  padding: 12px 0;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+.detail-footer-amount {
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--el-color-primary);
+}
 </style>
