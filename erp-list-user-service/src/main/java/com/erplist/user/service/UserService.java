@@ -1,6 +1,7 @@
 package com.erplist.user.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.erplist.user.dto.AdminUserQueryDTO;
 import com.erplist.user.dto.LoginDTO;
 import com.erplist.user.dto.LoginResultDTO;
 import com.erplist.user.dto.UserDTO;
@@ -56,5 +57,20 @@ public interface UserService {
      * 根据token获取用户信息
      */
     User getUserByToken(String token);
+
+    /**
+     * 管理端：全平台用户分页查询（不按 zid 过滤）
+     */
+    Page<User> listAllUsers(AdminUserQueryDTO queryDTO);
+
+    /**
+     * 管理端：重置指定用户密码
+     */
+    void resetPassword(Long userId, String newPassword);
+
+    /**
+     * 按 zid 统计用户数（用于数据查看）
+     */
+    long countUsersByZid(String zid);
 }
 

@@ -3,12 +3,15 @@ package com.erplist.user.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.erplist.common.exception.BusinessException;
+import com.erplist.user.constant.AdminConstant;
+import com.erplist.user.dto.AdminUserQueryDTO;
 import com.erplist.user.dto.LoginDTO;
 import com.erplist.user.dto.LoginResultDTO;
 import com.erplist.user.dto.UserDTO;
 import com.erplist.user.dto.UserQueryDTO;
 import com.erplist.user.entity.User;
 import com.erplist.user.mapper.UserMapper;
+import com.erplist.user.service.UserPermissionService;
 import com.erplist.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
@@ -24,8 +27,9 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
-    
+
     private final UserMapper userMapper;
+    private final UserPermissionService userPermissionService;
     
     // 简单的token存储（实际项目中应使用Redis或JWT）
     private static final ConcurrentHashMap<String, User> TOKEN_MAP = new ConcurrentHashMap<>();
@@ -190,10 +194,47 @@ public class UserServiceImpl implements UserService {
         userDTO.setPassword(null);
         result.setToken(token);
         result.setUser(userDTO);
-        
+        result.setIsAdmin(AdminConstant.ADMIN_ZID.equals(user.getZid())
+                && userPermissionService.hasPermission(user.getId(), AdminConstant.ADMIN_ACCESS));
+
         return result;
     }
-    
+
+    @Override
+    public Page<User> listAllUsers(AdminUserQueryDTO queryDTO) {
+        Page<User> page = new Page<>(queryDTO.getPageNum(), queryDTO.getPageSize());
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+        if (StringUtils.hasText(queryDTO.getZid())) {
+            wrapper.eq(User::getZid, queryDTO.getZid());
+        }
+        if (StringUtils.hasText(queryDTO.getUsername())) {
+            wrapper.like(User::getUsername, queryDTO.getUsername());
+        }
+        if (queryDTO.getStatus() != null) {
+            wrapper.eq(User::getStatus, queryDTO.getStatus());
+        }
+        wrapper.orderByDesc(User::getCreateTime);
+        Page<User> result = userMapper.selectPage(page, wrapper);
+        result.getRecords().forEach(u -> u.setPassword(null));
+        return result;
+    }
+
+    @Override
+    public void resetPassword(Long userId, String newPassword) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException("用户不存在");
+        }
+        user.setPassword(newPassword); // TODO: 加密
+        userMapper.updateById(user);
+    }
+
+    @Override
+    public long countUsersByZid(String zid) {
+        if (!StringUtils.hasText(zid)) return 0;
+        return userMapper.selectCount(new LambdaQueryWrapper<User>().eq(User::getZid, zid));
+    }
+
     @Override
     public User getUserByToken(String token) {
         return TOKEN_MAP.get(token);

@@ -84,11 +84,14 @@ const handleLogin = async () => {
     try {
       const res = await request.post('/users/login', loginForm)
       if (res.code === 200) {
-        // 保存用户信息和token
-        userStore.login(res.data.user, res.data.token)
-        
+        const isAdmin = res.data.isAdmin === true || (res.data.user && res.data.user.username === 'root')
+        userStore.login(res.data.user, res.data.token, isAdmin)
         ElMessage.success('登录成功')
-        router.push('/')
+        if (isAdmin) {
+          router.push('/admin/dashboard')
+        } else {
+          router.push('/')
+        }
       } else {
         ElMessage.error(res.message || '登录失败')
       }

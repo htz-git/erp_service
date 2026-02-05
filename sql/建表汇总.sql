@@ -118,7 +118,42 @@ CREATE TABLE IF NOT EXISTS `user_permission` (
   KEY `idx_permission_id` (`permission_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户权限关联表';
 
--- 权限初始数据（店铺增删、商品增删改、用户管理）
+-- 公司表（主键 id 即 zid，与 user.zid 对应）
+CREATE TABLE IF NOT EXISTS `company` (
+  `id` VARCHAR(50) NOT NULL COMMENT '公司ID（即 zid）',
+  `company_name` VARCHAR(100) NOT NULL COMMENT '公司名称',
+  `contact_name` VARCHAR(50) DEFAULT NULL COMMENT '联系人姓名',
+  `contact_phone` VARCHAR(20) DEFAULT NULL COMMENT '联系人电话',
+  `contact_email` VARCHAR(100) DEFAULT NULL COMMENT '联系人邮箱',
+  `address` VARCHAR(255) DEFAULT NULL COMMENT '公司地址（选填）',
+  `status` TINYINT DEFAULT 1 COMMENT '状态：0-禁用，1-启用',
+  `remark` VARCHAR(500) DEFAULT NULL COMMENT '备注',
+  `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted` TINYINT DEFAULT 0 COMMENT '逻辑删除：0-未删除，1-已删除',
+  PRIMARY KEY (`id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_create_time` (`create_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='公司表';
+
+-- 操作日志表（审计）
+CREATE TABLE IF NOT EXISTS `audit_log` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT 'ID',
+  `operator_id` BIGINT DEFAULT NULL COMMENT '操作人用户ID',
+  `operator_name` VARCHAR(50) DEFAULT NULL COMMENT '操作人用户名',
+  `action_type` VARCHAR(50) NOT NULL COMMENT '操作类型：company_onboard, company_disable, company_enable, user_disable, user_enable, user_reset_password 等',
+  `target_type` VARCHAR(30) DEFAULT NULL COMMENT '对象类型：company, user',
+  `target_id` VARCHAR(50) DEFAULT NULL COMMENT '对象ID（如 zid、user_id）',
+  `detail` VARCHAR(500) DEFAULT NULL COMMENT '详情描述',
+  `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '操作时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_operator_id` (`operator_id`),
+  KEY `idx_action_type` (`action_type`),
+  KEY `idx_target_id` (`target_id`),
+  KEY `idx_create_time` (`create_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='操作日志表';
+
+-- 权限初始数据（店铺增删、商品增删改、用户管理、管理员）
 INSERT INTO `permission` (`permission_name`, `permission_code`, `resource_type`, `sort_order`, `description`) VALUES
 ('店铺-新增', 'seller:create', 'api', 10, '创建店铺'),
 ('店铺-删除', 'seller:delete', 'api', 11, '删除店铺'),
@@ -127,7 +162,8 @@ INSERT INTO `permission` (`permission_name`, `permission_code`, `resource_type`,
 ('商品-删除', 'product:delete', 'api', 22, '删除商品'),
 ('用户-新增', 'user:create', 'api', 30, '创建用户'),
 ('用户-修改', 'user:update', 'api', 31, '修改用户'),
-('用户-删除', 'user:delete', 'api', 32, '删除用户')
+('用户-删除', 'user:delete', 'api', 32, '删除用户'),
+('管理员-后台', 'admin:access', 'api', 1, '平台管理员，可访问管理后台')
 ON DUPLICATE KEY UPDATE `permission_name` = VALUES(`permission_name`);
 
 

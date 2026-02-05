@@ -2,9 +2,12 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { userApi } from '@/api/user'
 
+const USER_IS_ADMIN_KEY = 'user_is_admin'
+
 export const useUserStore = defineStore('user', () => {
   const user = ref(null)
   const token = ref(null)
+  const isAdmin = ref(false)
 
   const USER_ID_KEY = 'user_id'
   const USER_ZID_KEY = 'user_zid'
@@ -26,17 +29,29 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  function setAdmin(v) {
+    isAdmin.value = !!v
+    localStorage.setItem(USER_IS_ADMIN_KEY, v ? '1' : '0')
+  }
+
+  function clearAdmin() {
+    isAdmin.value = false
+    localStorage.removeItem(USER_IS_ADMIN_KEY)
+  }
+
   function clearUser() {
     user.value = null
     token.value = null
+    clearAdmin()
     localStorage.removeItem('token')
     localStorage.removeItem(USER_ID_KEY)
     localStorage.removeItem(USER_ZID_KEY)
   }
 
-  function login(userData, tokenValue) {
+  function login(userData, tokenValue, adminFlag) {
     setUser(userData)
     setToken(tokenValue)
+    setAdmin(adminFlag)
   }
 
   function logout() {
@@ -47,6 +62,10 @@ export const useUserStore = defineStore('user', () => {
     const savedToken = localStorage.getItem('token')
     if (savedToken) {
       token.value = savedToken
+    }
+    const savedAdmin = localStorage.getItem(USER_IS_ADMIN_KEY)
+    if (savedAdmin === '1') {
+      isAdmin.value = true
     }
   }
 
@@ -66,6 +85,7 @@ export const useUserStore = defineStore('user', () => {
   const isAuthenticated = () => !!token.value
   const currentUser = () => user.value
   const currentZid = () => user.value?.zid
+  const isAdminUser = () => isAdmin.value === true
 
   /** 供请求拦截器用：优先从 store 取，否则从 localStorage 取（刷新后首请求时 store 可能尚未拉取） */
   function getUserIdForHeader() {
@@ -82,8 +102,11 @@ export const useUserStore = defineStore('user', () => {
   return {
     user,
     token,
+    isAdmin,
     setUser,
     setToken,
+    setAdmin,
+    clearAdmin,
     clearUser,
     login,
     logout,
@@ -92,6 +115,7 @@ export const useUserStore = defineStore('user', () => {
     isAuthenticated,
     currentUser,
     currentZid,
+    isAdminUser,
     getUserIdForHeader,
     getZidForHeader
   }

@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Layout from '@/layout/index.vue'
+import AdminLayout from '@/layout/AdminLayout.vue'
 import { useUserStore } from '@/store/user'
 
 const routes = [
@@ -8,6 +9,56 @@ const routes = [
     name: 'Login',
     component: () => import('@/views/Login.vue'),
     meta: { title: '登录' }
+  },
+  {
+    path: '/admin',
+    component: AdminLayout,
+    redirect: '/admin/dashboard',
+    meta: { requiresAuth: true, requiresAdmin: true },
+    children: [
+      {
+        path: 'dashboard',
+        name: 'AdminDashboard',
+        component: () => import('@/views/admin/Dashboard.vue'),
+        meta: { title: '管理首页', icon: 'HomeFilled' }
+      },
+      {
+        path: 'companies',
+        name: 'AdminCompanyList',
+        component: () => import('@/views/admin/company/CompanyList.vue'),
+        meta: { title: '公司列表', icon: 'OfficeBuilding' }
+      },
+      {
+        path: 'companies/onboard',
+        name: 'AdminCompanyOnboard',
+        component: () => import('@/views/admin/company/CompanyOnboard.vue'),
+        meta: { title: '开通公司', icon: 'OfficeBuilding' }
+      },
+      {
+        path: 'companies/:zid',
+        name: 'AdminCompanyDetail',
+        component: () => import('@/views/admin/company/CompanyDetail.vue'),
+        meta: { title: '公司详情', icon: 'OfficeBuilding' }
+      },
+      {
+        path: 'users',
+        name: 'AdminUserList',
+        component: () => import('@/views/admin/user/AdminUserList.vue'),
+        meta: { title: '用户管理', icon: 'User' }
+      },
+      {
+        path: 'data-view',
+        name: 'AdminDataView',
+        component: () => import('@/views/admin/DataView.vue'),
+        meta: { title: '数据查看', icon: 'DataAnalysis' }
+      },
+      {
+        path: 'audit-logs',
+        name: 'AdminAuditLogs',
+        component: () => import('@/views/admin/AuditLogs.vue'),
+        meta: { title: '审计日志', icon: 'Document' }
+      }
+    ]
   },
   {
     path: '/',
@@ -142,16 +193,29 @@ router.beforeEach(async (to, from, next) => {
       next('/login')
       return
     }
-    // 有 token 时进入需登录页面前必须用后端校验；失败则 clearUser，currentUser 为空
-    await userStore.fetchAndSetUser()
+    // 已有当前用户（如刚登录）时不再请求 getCurrentUser，避免平台管理员首次进入管理端时 401 导致被踢回登录
+    if (!userStore.currentUser()) {
+      await userStore.fetchAndSetUser()
+    }
     if (!userStore.currentUser()) {
       next('/login')
       return
     }
+    // 管理端：若 isAdmin 未设置但 localStorage 有标记，则恢复（如刷新后）
+    if (to.meta.requiresAdmin && !userStore.isAdminUser()) {
+      const savedAdmin = localStorage.getItem('user_is_admin')
+      if (savedAdmin === '1') {
+        userStore.setAdmin(true)
+      }
+      if (!userStore.isAdminUser()) {
+        next('/')
+        return
+      }
+    }
     next()
   } else if (to.path === '/login') {
     if (userStore.isAuthenticated()) {
-      next('/')
+      next(userStore.isAdminUser() ? '/admin/dashboard' : '/')
     } else {
       next()
     }

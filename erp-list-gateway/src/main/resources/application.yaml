@@ -4,6 +4,13 @@ spring:
   cloud:
     gateway:
       routes:
+        # 管理后台接口（用户服务）
+        - id: admin-service
+          uri: lb://erp-list-user-service
+          predicates:
+            - Path=/api/admin/**
+          filters:
+            - StripPrefix=1
         # 用户服务
         - id: user-service
           uri: lb://erp-list-user-service
