@@ -6,6 +6,8 @@ import com.erplist.common.exception.BusinessException;
 import com.erplist.common.result.Result;
 import com.erplist.common.utils.UserContext;
 import com.erplist.replenishment.dto.ReplenishmentSuggestionDTO;
+import com.erplist.replenishment.entity.Inventory;
+import com.erplist.replenishment.mapper.InventoryMapper;
 import com.erplist.replenishment.service.LstmForecastService;
 import com.erplist.replenishment.dto.ReplenishmentSuggestionQueryDTO;
 import com.erplist.replenishment.service.ReplenishmentSuggestionService;
@@ -19,6 +21,8 @@ import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+
 /**
  * 补货建议服务实现：拉取订单销售时序 → 调用 LSTM 预测 → 返回补货建议
  */
@@ -29,6 +33,7 @@ public class ReplenishmentSuggestionServiceImpl implements ReplenishmentSuggesti
 
     private final OrderClient orderClient;
     private final LstmForecastService lstmForecastService;
+    private final InventoryMapper inventoryMapper;
 
     private static final int DEFAULT_HISTORY_DAYS = 30;
     private static final int DEFAULT_FORECAST_DAYS = 7;
@@ -89,18 +94,41 @@ public class ReplenishmentSuggestionServiceImpl implements ReplenishmentSuggesti
             return Collections.emptyList();
         }
 
+        // 按 zid + skuIds 批量查库存，无记录视为 0
+        List<Long> skuIds = predictions.stream()
+                .map(p -> longFrom(p.get("skuId")))
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        Map<Long, Integer> skuIdToStock = new HashMap<>();
+        if (!skuIds.isEmpty()) {
+            LambdaQueryWrapper<Inventory> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(Inventory::getZid, zid).in(Inventory::getSkuId, skuIds);
+            List<Inventory> inventories = inventoryMapper.selectList(wrapper);
+            for (Inventory inv : inventories) {
+                if (inv.getSkuId() != null && inv.getCurrentStock() != null) {
+                    skuIdToStock.put(inv.getSkuId(), inv.getCurrentStock());
+                }
+            }
+        }
+
         List<ReplenishmentSuggestionDTO> suggestions = new ArrayList<>();
         for (Map<String, Object> p : predictions) {
+            Long skuId = longFrom(p.get("skuId"));
             Integer forecastTotal = numberToInt(p.get("forecastTotal"));
             List<Double> forecastDaily = toDoubleList(p.get("forecastDaily"));
+            int total = forecastTotal != null ? forecastTotal : 0;
+            int currentStock = skuId != null ? skuIdToStock.getOrDefault(skuId, 0) : 0;
+            int suggestedQuantity = Math.max(0, total - currentStock);
             suggestions.add(ReplenishmentSuggestionDTO.builder()
-                    .skuId(longFrom(p.get("skuId")))
+                    .skuId(skuId)
                     .skuCode(stringOf(p.get("skuCode")))
                     .productName(stringOf(p.get("productName")))
                     .productId(longFrom(p.get("productId")))
-                    .forecastTotal(forecastTotal != null ? forecastTotal : 0)
+                    .forecastTotal(total)
                     .forecastDaily(forecastDaily)
-                    .suggestedQuantity(forecastTotal != null ? forecastTotal : 0)
+                    .currentStock(currentStock)
+                    .suggestedQuantity(suggestedQuantity)
                     .build());
         }
         return suggestions;

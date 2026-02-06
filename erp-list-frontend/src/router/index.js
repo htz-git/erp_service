@@ -176,6 +176,19 @@ const routes = [
         meta: { title: '补货管理', icon: 'Box' }
       }
     ]
+  },
+  {
+    path: '/inventory',
+    component: Layout,
+    meta: { requiresAuth: true },
+    children: [
+      {
+        path: 'list',
+        name: 'InventoryList',
+        component: () => import('@/views/inventory/InventoryList.vue'),
+        meta: { title: '库存管理', icon: 'Box' }
+      }
+    ]
   }
 ]
 

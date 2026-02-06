@@ -65,6 +65,11 @@
               {{ row.forecastTotal ?? 0 }}
             </template>
           </el-table-column>
+          <el-table-column prop="currentStock" label="当前库存" width="100" align="right">
+            <template #default="{ row }">
+              {{ row.currentStock ?? 0 }}
+            </template>
+          </el-table-column>
           <el-table-column prop="suggestedQuantity" label="建议补货量" width="110" align="right">
             <template #default="{ row }">
               {{ row.suggestedQuantity ?? 0 }}

@@ -61,6 +61,12 @@
             <span class="menu-label">补货</span>
           </span>
         </el-menu-item>
+        <el-menu-item index="/inventory/list">
+          <span class="menu-item-inner">
+            <el-icon class="menu-icon"><Grid /></el-icon>
+            <span class="menu-label">库存</span>
+          </span>
+        </el-menu-item>
       </el-menu>
     </el-aside>
     <el-container class="right-container">
@@ -168,6 +174,7 @@ import {
   ShoppingCart,
   Money,
   Box,
+  Grid,
   ArrowDown,
   Clock,
   Refresh,

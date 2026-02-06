@@ -136,6 +136,14 @@
         <el-form-item label="备注" prop="remark">
           <el-input v-model="form.remark" type="textarea" placeholder="备注" :rows="2" />
         </el-form-item>
+        <template v-if="!editId">
+          <el-form-item label="当前库存" prop="currentStock">
+            <el-input-number v-model="form.currentStock" :min="0" controls-position="right" style="width: 100%" placeholder="选填，默认 0" />
+          </el-form-item>
+          <el-form-item label="最低库存" prop="minStock">
+            <el-input-number v-model="form.minStock" :min="0" controls-position="right" style="width: 100%" placeholder="选填，默认 0" />
+          </el-form-item>
+        </template>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -151,6 +159,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/store/user'
 import { productApi } from '@/api/product'
 import { sellerApi } from '@/api/seller'
+import { createInventory } from '@/api/inventory'
 
 const userStore = useUserStore()
 const currentZid = computed(() => userStore.currentZid())
@@ -220,7 +229,9 @@ const form = ref({
   skuCode: '',
   platformSku: '',
   imageUrl: '',
-  remark: ''
+  remark: '',
+  currentStock: 0,
+  minStock: 0
 })
 const rules = {
   productName: [{ required: true, message: '请输入商品名称', trigger: 'blur' }]
@@ -235,7 +246,9 @@ function resetForm() {
     skuCode: '',
     platformSku: '',
     imageUrl: '',
-    remark: ''
+    remark: '',
+    currentStock: 0,
+    minStock: 0
   }
   formRef.value?.resetFields()
 }
@@ -250,7 +263,9 @@ function openDialog(row) {
       skuCode: row.skuCode ?? '',
       platformSku: row.platformSku ?? '',
       imageUrl: row.imageUrl ?? '',
-      remark: row.remark ?? ''
+      remark: row.remark ?? '',
+      currentStock: 0,
+      minStock: 0
     }
   } else {
     resetForm()
@@ -271,7 +286,27 @@ async function handleSubmit() {
         ElMessage.error('未获取到当前公司信息，无法创建商品')
         return
       }
-      await productApi.createProduct({ ...form.value, zid })
+      const createPayload = { ...form.value, zid }
+      const { currentStock, minStock } = form.value
+      delete createPayload.currentStock
+      delete createPayload.minStock
+      const res = await productApi.createProduct(createPayload)
+      const created = res?.data
+      const needStock = (currentStock != null && currentStock > 0) || (minStock != null && minStock > 0)
+      if (created?.id != null && needStock) {
+        try {
+          await createInventory({
+            productId: created.id,
+            productName: created.productName ?? form.value.productName,
+            skuId: created.id,
+            skuCode: created.skuCode ?? form.value.skuCode,
+            currentStock: currentStock ?? 0,
+            minStock: minStock ?? 0
+          })
+        } catch (err) {
+          ElMessage.warning('商品已创建，但库存记录创建失败：' + (err.message || '请稍后在库存管理中补录'))
+        }
+      }
       ElMessage.success('创建成功')
     }
     dialogVisible.value = false

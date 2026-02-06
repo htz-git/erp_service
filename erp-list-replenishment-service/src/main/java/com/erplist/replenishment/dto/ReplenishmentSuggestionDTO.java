@@ -28,6 +28,8 @@ public class ReplenishmentSuggestionDTO {
     private Integer forecastTotal;
     /** 预测的每日需求量（按天） */
     private List<Double> forecastDaily;
-    /** 建议补货数量（与 forecastTotal 一致，或可根据当前库存再减） */
+    /** 当前库存（无记录时为 0） */
+    private Integer currentStock;
+    /** 建议补货数量（max(0, 预测需求量 - 当前库存)） */
     private Integer suggestedQuantity;
 }

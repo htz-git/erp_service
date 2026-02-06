@@ -67,6 +67,13 @@ spring:
             - Path=/api/replenishments/**
           filters:
             - StripPrefix=1
+        # 库存接口（转发至补货服务）
+        - id: inventory-service
+          uri: lb://erp-list-replenishment-service
+          predicates:
+            - Path=/api/inventories/**
+          filters:
+            - StripPrefix=1
       globalcors:
         cors-configurations:
           '[/**]':
