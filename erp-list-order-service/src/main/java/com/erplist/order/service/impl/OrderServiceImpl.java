@@ -162,7 +162,7 @@ public class OrderServiceImpl implements OrderService {
         if (queryDTO.getCreateTimeEnd() != null) {
             wrapper.le(Order::getCreateTime, queryDTO.getCreateTimeEnd().atTime(LocalTime.MAX));
         }
-        wrapper.orderByDesc(Order::getCreateTime);
+        wrapper.orderByAsc(Order::getId);
         return orderMapper.selectPage(page, wrapper);
     }
 

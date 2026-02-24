@@ -94,7 +94,9 @@ public class CompanyProductServiceImpl implements CompanyProductService {
         if (!StringUtils.hasText(zid)) {
             throw new BusinessException("未登录或缺少租户信息，仅能查看当前公司下的商品");
         }
-        Page<CompanyProduct> page = new Page<>(queryDTO.getPageNum(), queryDTO.getPageSize());
+        int pageNum = queryDTO.getPageNum() != null ? queryDTO.getPageNum() : 1;
+        int pageSize = queryDTO.getPageSize() != null ? queryDTO.getPageSize() : 10;
+        Page<CompanyProduct> page = new Page<>(pageNum, pageSize);
         LambdaQueryWrapper<CompanyProduct> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(CompanyProduct::getZid, zid);
         Long sid = queryDTO.getSid() != null ? queryDTO.getSid() : UserContext.getSid();
@@ -107,7 +109,7 @@ public class CompanyProductServiceImpl implements CompanyProductService {
         if (StringUtils.hasText(queryDTO.getProductCode())) {
             wrapper.eq(CompanyProduct::getProductCode, queryDTO.getProductCode());
         }
-        wrapper.orderByDesc(CompanyProduct::getCreateTime);
+        wrapper.orderByAsc(CompanyProduct::getId);
         return companyProductMapper.selectPage(page, wrapper);
     }
 

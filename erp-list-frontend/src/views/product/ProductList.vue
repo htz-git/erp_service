@@ -58,12 +58,12 @@
           <el-table-column prop="platformSku" label="平台SKU" width="100" show-overflow-tooltip />
           <el-table-column prop="imageUrl" label="图片" width="80">
             <template #default="{ row }">
-              <el-image
+              <img
                 v-if="row.imageUrl"
                 :src="row.imageUrl"
-                style="width: 36px; height: 36px"
-                fit="cover"
-                :preview-src-list="[row.imageUrl]"
+                class="product-thumb"
+                alt="商品图"
+                @click="openImagePreview(row.imageUrl)"
               />
               <span v-else>-</span>
             </template>
@@ -87,11 +87,26 @@
           :page-sizes="[10, 20, 50]"
           :total="pagination.total"
           layout="total, sizes, prev, pager, next"
-          @size-change="fetchList"
+          @size-change="handleSizeChange"
           @current-change="fetchList"
         />
       </div>
     </el-card>
+
+    <!-- 图片预览：单一遮罩 + 中央大图，无多余高亮 -->
+    <el-dialog
+      v-model="imagePreviewVisible"
+      title="图片预览"
+      width="auto"
+      align-center
+      :show-close="true"
+      class="image-preview-dialog"
+      destroy-on-close
+      append-to-body
+      @close="imagePreviewUrl = ''"
+    >
+      <img v-if="imagePreviewUrl" :src="imagePreviewUrl" class="preview-img" alt="预览" />
+    </el-dialog>
 
     <!-- 新建/编辑对话框 -->
     <el-dialog
@@ -155,6 +170,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
+import { parsePageResponse } from '@/utils/pagination'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/store/user'
 import { productApi } from '@/api/product'
@@ -168,6 +184,14 @@ const loading = ref(false)
 const list = ref([])
 const shopOptions = ref([])
 const shopOptionsLoading = ref(false)
+
+const imagePreviewVisible = ref(false)
+const imagePreviewUrl = ref('')
+function openImagePreview(url) {
+  if (!url) return
+  imagePreviewUrl.value = url
+  imagePreviewVisible.value = true
+}
 
 const filterForm = ref({
   sid: null,
@@ -197,14 +221,21 @@ async function fetchList() {
   loading.value = true
   try {
     const res = await productApi.queryProducts(buildParams())
-    list.value = res.data?.records ?? []
-    pagination.total = res.data?.total ?? 0
+    const { list: listData, total: totalCount } = parsePageResponse(res)
+    list.value = listData
+    pagination.total = totalCount
   } catch (e) {
     list.value = []
     ElMessage.error(e.message || '加载失败')
   } finally {
     loading.value = false
   }
+}
+
+function handleSizeChange(newSize) {
+  pagination.pageSize = newSize
+  pagination.pageNum = 1
+  fetchList()
 }
 
 function handleSearch() {
@@ -363,4 +394,34 @@ onMounted(() => {
 .filter-form { margin: 0; }
 .table-section { margin-top: 12px; }
 .pagination-section { margin-top: 16px; display: flex; justify-content: flex-end; }
+.product-thumb {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  cursor: pointer;
+  display: block;
+  border-radius: 4px;
+}
+.product-thumb:hover { opacity: 0.9; }
+</style>
+
+<style>
+/* 图片预览弹窗：全屏遮罩，仅中央大图，无多余高亮区域 */
+.image-preview-dialog.el-dialog {
+  max-width: 90vw;
+  background: transparent;
+  box-shadow: none;
+}
+.image-preview-dialog .el-dialog__header { display: none; }
+.image-preview-dialog .el-dialog__body {
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.image-preview-dialog .preview-img {
+  max-width: 90vw;
+  max-height: 85vh;
+  object-fit: contain;
+}
 </style>

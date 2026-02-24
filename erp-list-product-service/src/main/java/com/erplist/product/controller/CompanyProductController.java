@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.erplist.common.result.Result;
 import com.erplist.product.dto.CompanyProductDTO;
 import com.erplist.product.dto.CompanyProductQueryDTO;
+import com.erplist.product.dto.PageResult;
 import com.erplist.product.entity.CompanyProduct;
 import com.erplist.product.service.CompanyProductService;
 import lombok.RequiredArgsConstructor;
@@ -45,8 +46,12 @@ public class CompanyProductController {
     }
 
     @GetMapping
-    public Result<Page<CompanyProduct>> query(CompanyProductQueryDTO queryDTO) {
+    public Result<PageResult<CompanyProduct>> query(CompanyProductQueryDTO queryDTO) {
         Page<CompanyProduct> page = companyProductService.query(queryDTO);
-        return Result.success(page);
+        PageResult<CompanyProduct> result = new PageResult<>(
+                page.getRecords(),
+                page.getTotal()
+        );
+        return Result.success(result);
     }
 }

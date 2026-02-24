@@ -79,7 +79,7 @@
           :page-sizes="[10, 20, 50]"
           :total="pagination.total"
           layout="total, sizes, prev, pager, next"
-          @size-change="fetchList"
+          @size-change="handleSizeChange"
           @current-change="fetchList"
         />
       </div>
@@ -147,6 +147,11 @@ async function fetchList() {
   } finally {
     loading.value = false
   }
+}
+
+function handleSizeChange() {
+  pagination.pageNum = 1
+  fetchList()
 }
 
 function handleSearch() {
