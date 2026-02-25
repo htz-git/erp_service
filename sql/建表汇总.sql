@@ -482,7 +482,8 @@ INSERT INTO `refund_reason` (`reason_name`, `reason_code`, `sort_order`, `status
 ('不想要了', 'DONT_WANT', 3, 1),
 ('收到商品损坏', 'DAMAGED', 4, 1),
 ('发错商品', 'WRONG_ITEM', 5, 1),
-('其他原因', 'OTHER', 6, 1);
+('其他原因', 'OTHER', 6, 1)
+ON DUPLICATE KEY UPDATE `reason_name` = VALUES(`reason_name`), `sort_order` = VALUES(`sort_order`), `status` = VALUES(`status`);
 
 
 -- ===================== 第9段：补货服务 erp_list_replenishment =====================
