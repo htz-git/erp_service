@@ -62,10 +62,10 @@ public class ReplenishmentSuggestionServiceImpl implements ReplenishmentSuggesti
         }
         List<SalesTimeSeriesItemDTO> raw = result.getData();
 
-        // 按 SKU 分组，并按日期升序排列，得到每个 SKU 的 values 序列
+        // 按 SKU 分组（订单可能只返回 productId 不返回 skuId，用 productId 兜底），并按日期升序排列
         Map<Long, List<SalesTimeSeriesItemDTO>> bySku = raw.stream()
-                .filter(item -> item.getSkuId() != null)
-                .collect(Collectors.groupingBy(SalesTimeSeriesItemDTO::getSkuId));
+                .filter(item -> effectiveSkuId(item) != null)
+                .collect(Collectors.groupingBy(ReplenishmentSuggestionServiceImpl::effectiveSkuId));
 
         List<Map<String, Object>> series = new ArrayList<>();
         for (Map.Entry<Long, List<SalesTimeSeriesItemDTO>> e : bySku.entrySet()) {
@@ -77,8 +77,9 @@ public class ReplenishmentSuggestionServiceImpl implements ReplenishmentSuggesti
                     .map(item -> item.getQuantity() == null ? 0.0 : item.getQuantity().doubleValue())
                     .collect(Collectors.toList());
             SalesTimeSeriesItemDTO first = list.get(0);
+            Long skuKey = effectiveSkuId(first);
             Map<String, Object> item = new HashMap<>();
-            item.put("skuId", first.getSkuId());
+            item.put("skuId", skuKey);
             item.put("skuCode", first.getSkuCode() != null ? first.getSkuCode() : "");
             item.put("productName", first.getProductName() != null ? first.getProductName() : "");
             item.put("productId", first.getProductId() != null ? first.getProductId() : 0L);
@@ -132,6 +133,13 @@ public class ReplenishmentSuggestionServiceImpl implements ReplenishmentSuggesti
                     .build());
         }
         return suggestions;
+    }
+
+    /** 订单销售数据可能只带 productId 不带 skuId，用 productId 作为 SKU 维度兜底（与 inventory.sku_id 一致） */
+    private static Long effectiveSkuId(SalesTimeSeriesItemDTO item) {
+        if (item == null) return null;
+        if (item.getSkuId() != null) return item.getSkuId();
+        return item.getProductId();
     }
 
     private static Long longFrom(Object o) {
