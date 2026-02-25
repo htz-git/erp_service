@@ -31,7 +31,8 @@ public class LstmForecastServiceImpl implements LstmForecastService {
             List<Double> values = rawValues == null ? Collections.emptyList()
                     : rawValues.stream().map(Number::doubleValue).collect(Collectors.toList());
             List<Double> forecastDaily = predictOne(values, days);
-            int forecastTotal = forecastDaily.stream().mapToInt(d -> (int) Math.round(d)).sum();
+            double sumDaily = forecastDaily.stream().mapToDouble(Double::doubleValue).sum();
+            int forecastTotal = (int) Math.round(sumDaily);
             Map<String, Object> out = new HashMap<>(item);
             out.remove("values");
             out.put("forecastTotal", forecastTotal);
@@ -45,13 +46,13 @@ public class LstmForecastServiceImpl implements LstmForecastService {
         if (values == null || values.size() < MIN_HISTORY_LEN) {
             double avg = values != null && !values.isEmpty()
                     ? values.stream().mapToDouble(Double::doubleValue).average().orElse(0) : 0;
-            return repeat(Math.max(0, Math.round(avg)), forecastDays);
+            return repeat(Math.max(0, avg), forecastDays);
         }
         double[] arr = values.stream().mapToDouble(Double::doubleValue).toArray();
         int seqLen = Math.min(SEQ_LEN, arr.length - 1);
         if (seqLen < 2) {
             double avg = Arrays.stream(arr).average().orElse(0);
-            return repeat(Math.max(0, (int) Math.round(avg)), forecastDays);
+            return repeat(Math.max(0, avg), forecastDays);
         }
         try {
             return predictWithLstm(arr, seqLen, forecastDays);
@@ -131,7 +132,7 @@ public class LstmForecastServiceImpl implements LstmForecastService {
             sum += values[i];
         }
         double avg = sum / window;
-        return repeat(Math.max(0, (int) Math.round(avg)), forecastDays);
+        return repeat(Math.max(0, avg), forecastDays);
     }
 
     private static List<Double> repeat(double value, int n) {
