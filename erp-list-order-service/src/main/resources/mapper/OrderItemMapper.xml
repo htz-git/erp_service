@@ -26,4 +26,12 @@
         GROUP BY DATE(oi.create_time), oi.sku_id, oi.sku_code, oi.product_name, oi.product_id
         ORDER BY oi.sku_id, date
     </select>
+
+    <select id="selectDistinctSidByZid" resultType="java.lang.Long">
+        SELECT DISTINCT oi.sid
+        FROM order_item oi
+        INNER JOIN `order` ord ON ord.id = oi.order_id AND ord.deleted = 0
+        WHERE oi.zid = #{zid} AND oi.sid IS NOT NULL
+        ORDER BY oi.sid
+    </select>
 </mapper>

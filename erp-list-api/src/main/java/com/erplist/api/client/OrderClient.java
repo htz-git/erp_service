@@ -17,6 +17,12 @@ import java.util.List;
 public interface OrderClient {
 
     /**
+     * 查询某公司下有订单的店铺 ID 列表（去重），供补货建议“全部店铺”使用
+     */
+    @GetMapping("/orders/distinct-sids")
+    Result<List<Long>> getDistinctSids(@RequestParam(value = "zid", required = false) String zid);
+
+    /**
      * 获取销售时序数据（按日、按 SKU 聚合），用于 LSTM 需求预测
      *
      * @param zid      租户 ID（可选，不传则用 Feign 请求头中的 user-zid）

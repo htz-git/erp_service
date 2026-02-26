@@ -24,6 +24,7 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -174,6 +175,16 @@ public class OrderServiceImpl implements OrderService {
         }
         Long effectiveSid = sid != null ? sid : UserContext.getSid();
         return orderItemMapper.selectSalesTimeSeries(effectiveZid, effectiveSid, startDate, endDate, skuId);
+    }
+
+    @Override
+    public List<Long> getDistinctSidsByZid(String zid) {
+        String effectiveZid = StringUtils.hasText(zid) ? zid : UserContext.getZid();
+        if (!StringUtils.hasText(effectiveZid)) {
+            return Collections.emptyList();
+        }
+        List<Long> list = orderItemMapper.selectDistinctSidByZid(effectiveZid);
+        return list != null ? list : Collections.emptyList();
     }
 
     private static final Map<String, String> COUNTRY_NAME_MAP = new HashMap<String, String>() {{

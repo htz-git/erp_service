@@ -27,6 +27,11 @@ public interface OrderService {
     List<SalesTimeSeriesItemDTO> getSalesTimeSeries(String zid, Long sid, LocalDate startDate, LocalDate endDate, Long skuId);
 
     /**
+     * 查询某公司下有订单的店铺 ID 列表（去重）
+     */
+    List<Long> getDistinctSidsByZid(String zid);
+
+    /**
      * 按国家统计订单数，供首页地图使用
      */
     List<CountryOrderCountDTO> getOrderStatsByCountry(String zid, Long sid, LocalDate startDate, LocalDate endDate);

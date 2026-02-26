@@ -58,6 +58,15 @@ public class OrderController {
     }
 
     /**
+     * 查询某公司下有订单的店铺 ID 列表（去重），供补货建议“全部店铺”使用
+     */
+    @GetMapping("/distinct-sids")
+    public Result<List<Long>> getDistinctSids(@RequestParam(value = "zid", required = false) String zid) {
+        List<Long> list = orderService.getDistinctSidsByZid(zid);
+        return Result.success(list);
+    }
+
+    /**
      * 获取销售时序数据（按日、按 SKU 聚合），供 LSTM 补货预测使用
      */
     @GetMapping("/sales-timeseries")

@@ -46,10 +46,6 @@ public class ReplenishmentSuggestionServiceImpl implements ReplenishmentSuggesti
         if (!StringUtils.hasText(zid)) {
             throw new BusinessException("未登录或缺少租户信息，仅能查看当前公司下的补货建议");
         }
-        Long sid = (queryDTO != null && queryDTO.getSid() != null) ? queryDTO.getSid() : UserContext.getSid();
-        if (sid == null) {
-            sid = 1L; // 未传店铺时默认使用默认店铺 id=1，与 init 数据一致
-        }
 
         LocalDate endDate = queryDTO != null && queryDTO.getEndDate() != null
                 ? queryDTO.getEndDate()
@@ -61,13 +57,40 @@ public class ReplenishmentSuggestionServiceImpl implements ReplenishmentSuggesti
                 ? Math.min(30, Math.max(1, queryDTO.getForecastDays()))
                 : DEFAULT_FORECAST_DAYS;
 
+        // 未选店铺：查询当前公司下所有有订单的店铺，分别生成补货建议（每条带对应 sid）
+        // 已选店铺：只查选中店铺的订单并生成该店铺的补货建议
+        Long querySid = (queryDTO != null && queryDTO.getSid() != null) ? queryDTO.getSid() : null;
+        List<Long> sidsToUse;
+        if (querySid != null) {
+            sidsToUse = Collections.singletonList(querySid);
+        } else {
+            Result<List<Long>> sidsResult = orderClient.getDistinctSids(zid);
+            if (sidsResult == null || sidsResult.getData() == null || sidsResult.getData().isEmpty()) {
+                return Collections.emptyList();
+            }
+            sidsToUse = sidsResult.getData();
+        }
+
+        List<ReplenishmentSuggestionDTO> allSuggestions = new ArrayList<>();
+        for (Long sid : sidsToUse) {
+            if (sid == null) continue;
+            List<ReplenishmentSuggestionDTO> oneStore = getSuggestionsForStore(zid, sid, startDate, endDate, forecastDays);
+            allSuggestions.addAll(oneStore);
+        }
+        return allSuggestions;
+    }
+
+    /**
+     * 为单个店铺生成补货建议（保证每条建议的 sid 均为该店铺 ID）
+     */
+    private List<ReplenishmentSuggestionDTO> getSuggestionsForStore(String zid, Long sid,
+            LocalDate startDate, LocalDate endDate, int forecastDays) {
         Result<List<SalesTimeSeriesItemDTO>> result = orderClient.getSalesTimeSeries(zid, sid, startDate, endDate, null);
         if (result == null || result.getData() == null || result.getData().isEmpty()) {
             return Collections.emptyList();
         }
         List<SalesTimeSeriesItemDTO> raw = result.getData();
 
-        // 按 SKU 分组（订单可能只返回 productId 不返回 skuId，用 productId 兜底），并按日期升序排列
         Map<Long, List<SalesTimeSeriesItemDTO>> bySku = raw.stream()
                 .filter(item -> effectiveSkuId(item) != null)
                 .collect(Collectors.groupingBy(ReplenishmentSuggestionServiceImpl::effectiveSkuId));
@@ -100,14 +123,13 @@ public class ReplenishmentSuggestionServiceImpl implements ReplenishmentSuggesti
             return Collections.emptyList();
         }
 
-        // 按 zid + skuIds 批量查库存，无记录视为 0
         List<Long> skuIds = predictions.stream()
                 .map(p -> longFrom(p.get("skuId")))
                 .filter(Objects::nonNull)
                 .distinct()
                 .collect(Collectors.toList());
         Map<Long, Integer> skuIdToStock = new HashMap<>();
-        if (!skuIds.isEmpty() && sid != null) {
+        if (!skuIds.isEmpty()) {
             LambdaQueryWrapper<Inventory> wrapper = new LambdaQueryWrapper<>();
             wrapper.eq(Inventory::getZid, zid).eq(Inventory::getSid, sid).in(Inventory::getSkuId, skuIds);
             List<Inventory> inventories = inventoryMapper.selectList(wrapper);
@@ -125,7 +147,6 @@ public class ReplenishmentSuggestionServiceImpl implements ReplenishmentSuggesti
             List<Double> forecastDaily = toDoubleList(p.get("forecastDaily"));
             int total = forecastTotal != null ? forecastTotal : 0;
             int currentStock = skuId != null ? skuIdToStock.getOrDefault(skuId, 0) : 0;
-            // 建议量 = (预测总需求 * 1.1 盈余) - 当前库存，避免销量激增时断货
             int demandWithBuffer = (int) Math.round(total * FORECAST_BUFFER_RATIO);
             int suggestedQuantity = Math.max(0, demandWithBuffer - currentStock);
             suggestions.add(ReplenishmentSuggestionDTO.builder()

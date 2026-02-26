@@ -25,4 +25,9 @@ public interface OrderItemMapper extends BaseMapper<OrderItem> {
             @Param("endDate") LocalDate endDate,
             @Param("skuId") Long skuId
     );
+
+    /**
+     * 查询某公司下有订单的店铺 ID 列表（去重），供补货建议“全部店铺”使用
+     */
+    List<Long> selectDistinctSidByZid(@Param("zid") String zid);
 }
