@@ -29,18 +29,23 @@ public class InventoryServiceImpl implements InventoryService {
         if (!StringUtils.hasText(zid)) {
             throw new BusinessException("未登录或缺少租户信息，仅能创建当前公司下的库存");
         }
+        Long sid = dto.getSid() != null ? dto.getSid() : UserContext.getSid();
+        if (sid == null) {
+            throw new BusinessException("请选择所属店铺");
+        }
         Long skuId = dto.getSkuId() != null ? dto.getSkuId() : dto.getProductId();
         if (skuId == null) {
             throw new BusinessException("商品ID与SKU ID不能同时为空");
         }
         LambdaQueryWrapper<Inventory> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Inventory::getZid, zid).eq(Inventory::getSkuId, skuId);
+        wrapper.eq(Inventory::getZid, zid).eq(Inventory::getSid, sid).eq(Inventory::getSkuId, skuId);
         if (inventoryMapper.selectCount(wrapper) > 0) {
-            throw new BusinessException("该公司下该SKU已存在库存记录，请勿重复创建");
+            throw new BusinessException("该公司该店铺下该SKU已存在库存记录，请勿重复创建");
         }
         Inventory entity = new Inventory();
         BeanUtils.copyProperties(dto, entity, "id");
         entity.setZid(zid);
+        entity.setSid(sid);
         entity.setSkuId(skuId);
         entity.setCurrentStock(dto.getCurrentStock() != null ? dto.getCurrentStock() : 0);
         entity.setMinStock(dto.getMinStock() != null ? dto.getMinStock() : 0);
@@ -90,6 +95,9 @@ public class InventoryServiceImpl implements InventoryService {
         Page<Inventory> page = new Page<>(queryDTO.getPageNum(), queryDTO.getPageSize());
         LambdaQueryWrapper<Inventory> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Inventory::getZid, zid);
+        if (queryDTO.getSid() != null) {
+            wrapper.eq(Inventory::getSid, queryDTO.getSid());
+        }
         if (StringUtils.hasText(queryDTO.getSkuCode())) {
             wrapper.eq(Inventory::getSkuCode, queryDTO.getSkuCode());
         }

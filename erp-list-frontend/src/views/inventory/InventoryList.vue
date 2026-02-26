@@ -9,6 +9,21 @@
 
       <div class="filter-section">
         <el-form :model="filterForm" inline class="filter-form">
+          <el-form-item label="店铺">
+            <el-select
+              v-model="filterForm.sid"
+              placeholder="全部店铺"
+              clearable
+              style="width: 180px"
+            >
+              <el-option
+                v-for="s in sellerOptions"
+                :key="s.id"
+                :label="s.sellerName || s.seller_name || `店铺 ${s.id}`"
+                :value="s.id"
+              />
+            </el-select>
+          </el-form-item>
           <el-form-item label="SKU编码">
             <el-input v-model="filterForm.skuCode" placeholder="SKU编码" clearable style="width: 140px" />
           </el-form-item>
@@ -25,6 +40,11 @@
 
       <div class="table-section">
         <el-table v-loading="loading" :data="list" stripe border style="width: 100%">
+          <el-table-column label="所属店铺" width="120">
+            <template #default="{ row }">
+              {{ sellerNameBySid(row.sid) }}
+            </template>
+          </el-table-column>
           <el-table-column prop="skuCode" label="SKU编码" width="120" show-overflow-tooltip />
           <el-table-column prop="productName" label="商品名称" min-width="160" show-overflow-tooltip />
           <el-table-column prop="currentStock" label="当前库存" width="100" align="right">
@@ -63,6 +83,21 @@
       @close="resetForm"
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
+        <el-form-item v-if="!editId" label="所属店铺" prop="sid">
+          <el-select
+            v-model="form.sid"
+            placeholder="请选择店铺（必选）"
+            style="width: 100%"
+            :loading="sellerOptionsLoading"
+          >
+            <el-option
+              v-for="s in sellerOptions"
+              :key="s.id"
+              :label="s.sellerName || s.seller_name || `店铺 ${s.id}`"
+              :value="s.id"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item v-if="!editId" label="选择商品" prop="productId">
           <el-select
             v-model="form.productId"
@@ -81,6 +116,7 @@
           </el-select>
         </el-form-item>
         <template v-if="editId">
+          <el-form-item label="所属店铺">{{ sellerNameBySid(form.sid) }}</el-form-item>
           <el-form-item label="SKU编码">{{ form.skuCode || '-' }}</el-form-item>
           <el-form-item label="商品名称">{{ form.productName || '-' }}</el-form-item>
         </template>
@@ -105,6 +141,7 @@ import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/store/user'
 import { getInventoryList, getInventoryById, createInventory, updateInventory } from '@/api/inventory'
 import { productApi } from '@/api/product'
+import { sellerApi } from '@/api/seller'
 
 const userStore = useUserStore()
 const currentZid = computed(() => userStore.currentZid())
@@ -113,12 +150,21 @@ const loading = ref(false)
 const list = ref([])
 const productOptions = ref([])
 const productOptionsLoading = ref(false)
+const sellerOptions = ref([])
+const sellerOptionsLoading = ref(false)
 
-const filterForm = ref({ skuCode: '', keyword: '' })
+const filterForm = ref({ sid: null, skuCode: '', keyword: '' })
 const pagination = reactive({ pageNum: 1, pageSize: 10, total: 0 })
+
+function sellerNameBySid(sid) {
+  if (sid == null) return '-'
+  const s = sellerOptions.value.find((x) => x.id === sid)
+  return s ? (s.sellerName || s.seller_name || `店铺 ${sid}`) : `店铺 ${sid}`
+}
 
 function buildParams() {
   const p = { pageNum: pagination.pageNum, pageSize: pagination.pageSize }
+  if (filterForm.value.sid != null && filterForm.value.sid !== '') p.sid = filterForm.value.sid
   if (filterForm.value.skuCode) p.skuCode = filterForm.value.skuCode
   if (filterForm.value.keyword) p.keyword = filterForm.value.keyword
   return p
@@ -145,9 +191,26 @@ function handleSizeChange() {
 }
 
 function handleReset() {
-  filterForm.value = { skuCode: '', keyword: '' }
+  filterForm.value = { sid: null, skuCode: '', keyword: '' }
   pagination.pageNum = 1
   fetchList()
+}
+
+async function loadSellerOptions() {
+  const zid = currentZid.value
+  if (!zid) {
+    sellerOptions.value = []
+    return
+  }
+  sellerOptionsLoading.value = true
+  try {
+    const res = await sellerApi.querySellers({ zid, pageNum: 1, pageSize: 500 })
+    sellerOptions.value = res?.data?.records ?? []
+  } catch {
+    sellerOptions.value = []
+  } finally {
+    sellerOptionsLoading.value = false
+  }
 }
 
 const dialogVisible = ref(false)
@@ -155,6 +218,7 @@ const editId = ref(null)
 const submitLoading = ref(false)
 const formRef = ref(null)
 const form = ref({
+  sid: null,
   productId: null,
   productName: '',
   skuId: null,
@@ -169,6 +233,7 @@ const rules = {
 function resetForm() {
   editId.value = null
   form.value = {
+    sid: null,
     productId: null,
     productName: '',
     skuId: null,
@@ -209,6 +274,7 @@ function openDialog(row) {
   editId.value = row ? row.id : null
   if (row) {
     form.value = {
+      sid: row.sid,
       productId: row.productId,
       productName: row.productName ?? '',
       skuId: row.skuId,
@@ -218,6 +284,7 @@ function openDialog(row) {
     }
   } else {
     resetForm()
+    loadSellerOptions()
     loadProductOptions()
   }
   dialogVisible.value = true
@@ -236,11 +303,16 @@ async function handleSubmit() {
       })
       ElMessage.success('更新成功')
     } else {
+      if (form.value.sid == null) {
+        ElMessage.warning('请选择所属店铺')
+        return
+      }
       if (form.value.productId == null) {
         ElMessage.warning('请选择商品')
         return
       }
       await createInventory({
+        sid: form.value.sid,
         productId: form.value.productId,
         productName: form.value.productName,
         skuId: form.value.skuId ?? form.value.productId,
@@ -260,6 +332,7 @@ async function handleSubmit() {
 }
 
 onMounted(() => {
+  loadSellerOptions()
   fetchList()
 })
 </script>

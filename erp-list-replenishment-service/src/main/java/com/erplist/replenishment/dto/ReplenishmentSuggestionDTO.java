@@ -16,6 +16,8 @@ import java.util.List;
 @AllArgsConstructor
 public class ReplenishmentSuggestionDTO {
 
+    /** 店铺 ID（所属店铺） */
+    private Long sid;
     /** SKU ID */
     private Long skuId;
     /** SKU 编码 */

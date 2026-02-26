@@ -39,6 +39,21 @@
               style="width: 120px"
             />
           </el-form-item>
+          <el-form-item label="店铺">
+            <el-select
+              v-model="filterForm.sid"
+              placeholder="默认当前店铺"
+              clearable
+              style="width: 180px"
+            >
+              <el-option
+                v-for="s in sellerOptions"
+                :key="s.id"
+                :label="s.sellerName || s.seller_name || `店铺 ${s.id}`"
+                :value="s.id"
+              />
+            </el-select>
+          </el-form-item>
           <el-form-item>
             <el-button type="primary" :loading="loading" @click="fetchSuggestions">
               生成补货建议
@@ -58,6 +73,11 @@
           style="width: 100%"
           :empty-text="emptyText"
         >
+          <el-table-column label="所属店铺" width="120">
+            <template #default="{ row }">
+              {{ sellerNameBySid(row.sid) }}
+            </template>
+          </el-table-column>
           <el-table-column prop="skuCode" label="SKU 编码" width="120" />
           <el-table-column prop="productName" label="商品名称" min-width="160" show-overflow-tooltip />
           <el-table-column prop="forecastTotal" label="预测总需求" width="110" align="right">
@@ -92,15 +112,22 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useUserStore } from '@/store/user'
 import { getReplenishmentSuggestions } from '@/api/replenishment'
+import { sellerApi } from '@/api/seller'
+
+const userStore = useUserStore()
+const currentZid = computed(() => userStore.currentZid())
 
 const loading = ref(false)
 const suggestions = ref([])
+const sellerOptions = ref([])
 
 const filterForm = ref({
   startDate: '',
   endDate: '',
-  forecastDays: 7
+  forecastDays: 7,
+  sid: null
 })
 
 const emptyText = computed(() =>
@@ -114,19 +141,41 @@ function formatForecastDaily(daily) {
   return `共 ${daily.length} 天，日均 ${avg}`
 }
 
+function sellerNameBySid(sid) {
+  if (sid == null) return '-'
+  const s = sellerOptions.value.find((x) => x.id === sid)
+  return s ? (s.sellerName || s.seller_name || `店铺 ${sid}`) : `店铺 ${sid}`
+}
+
 function buildParams() {
   const p = {}
   if (filterForm.value.startDate) p.startDate = filterForm.value.startDate
   if (filterForm.value.endDate) p.endDate = filterForm.value.endDate
   if (filterForm.value.forecastDays != null) p.forecastDays = filterForm.value.forecastDays
+  if (filterForm.value.sid != null && filterForm.value.sid !== '') p.sid = filterForm.value.sid
   return p
+}
+
+async function loadSellerOptions() {
+  const zid = currentZid.value
+  if (!zid) {
+    sellerOptions.value = []
+    return
+  }
+  try {
+    const res = await sellerApi.querySellers({ zid, pageNum: 1, pageSize: 500 })
+    sellerOptions.value = res?.data?.records ?? []
+  } catch {
+    sellerOptions.value = []
+  }
 }
 
 function resetFilter() {
   filterForm.value = {
     startDate: '',
     endDate: '',
-    forecastDays: 7
+    forecastDays: 7,
+    sid: null
   }
   suggestions.value = []
 }
@@ -148,7 +197,7 @@ async function fetchSuggestions() {
 }
 
 onMounted(() => {
-  // 不自动拉取，由用户点击「生成补货建议」触发
+  loadSellerOptions()
 })
 </script>
 

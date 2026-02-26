@@ -7,6 +7,7 @@ export function getInventoryList(params = {}) {
   const query = {}
   if (params.pageNum != null) query.pageNum = params.pageNum
   if (params.pageSize != null) query.pageSize = params.pageSize
+  if (params.sid != null && params.sid !== '') query.sid = params.sid
   if (params.skuCode) query.skuCode = params.skuCode
   if (params.keyword) query.keyword = params.keyword
   return request.get('/inventories', { params: query })

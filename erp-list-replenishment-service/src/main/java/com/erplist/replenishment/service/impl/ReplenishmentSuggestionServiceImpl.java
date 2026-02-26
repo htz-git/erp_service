@@ -37,6 +37,8 @@ public class ReplenishmentSuggestionServiceImpl implements ReplenishmentSuggesti
 
     private static final int DEFAULT_HISTORY_DAYS = 30;
     private static final int DEFAULT_FORECAST_DAYS = 7;
+    /** 预测需求加成系数（1.1 = 10% 盈余），用于应对销量激增，避免断货 */
+    private static final double FORECAST_BUFFER_RATIO = 1.1;
 
     @Override
     public List<ReplenishmentSuggestionDTO> getSuggestions(ReplenishmentSuggestionQueryDTO queryDTO) {
@@ -45,6 +47,9 @@ public class ReplenishmentSuggestionServiceImpl implements ReplenishmentSuggesti
             throw new BusinessException("未登录或缺少租户信息，仅能查看当前公司下的补货建议");
         }
         Long sid = (queryDTO != null && queryDTO.getSid() != null) ? queryDTO.getSid() : UserContext.getSid();
+        if (sid == null) {
+            sid = 1L; // 未传店铺时默认使用默认店铺 id=1，与 init 数据一致
+        }
 
         LocalDate endDate = queryDTO != null && queryDTO.getEndDate() != null
                 ? queryDTO.getEndDate()
@@ -102,9 +107,9 @@ public class ReplenishmentSuggestionServiceImpl implements ReplenishmentSuggesti
                 .distinct()
                 .collect(Collectors.toList());
         Map<Long, Integer> skuIdToStock = new HashMap<>();
-        if (!skuIds.isEmpty()) {
+        if (!skuIds.isEmpty() && sid != null) {
             LambdaQueryWrapper<Inventory> wrapper = new LambdaQueryWrapper<>();
-            wrapper.eq(Inventory::getZid, zid).in(Inventory::getSkuId, skuIds);
+            wrapper.eq(Inventory::getZid, zid).eq(Inventory::getSid, sid).in(Inventory::getSkuId, skuIds);
             List<Inventory> inventories = inventoryMapper.selectList(wrapper);
             for (Inventory inv : inventories) {
                 if (inv.getSkuId() != null && inv.getCurrentStock() != null) {
@@ -120,8 +125,11 @@ public class ReplenishmentSuggestionServiceImpl implements ReplenishmentSuggesti
             List<Double> forecastDaily = toDoubleList(p.get("forecastDaily"));
             int total = forecastTotal != null ? forecastTotal : 0;
             int currentStock = skuId != null ? skuIdToStock.getOrDefault(skuId, 0) : 0;
-            int suggestedQuantity = Math.max(0, total - currentStock);
+            // 建议量 = (预测总需求 * 1.1 盈余) - 当前库存，避免销量激增时断货
+            int demandWithBuffer = (int) Math.round(total * FORECAST_BUFFER_RATIO);
+            int suggestedQuantity = Math.max(0, demandWithBuffer - currentStock);
             suggestions.add(ReplenishmentSuggestionDTO.builder()
+                    .sid(sid)
                     .skuId(skuId)
                     .skuCode(stringOf(p.get("skuCode")))
                     .productName(stringOf(p.get("productName")))

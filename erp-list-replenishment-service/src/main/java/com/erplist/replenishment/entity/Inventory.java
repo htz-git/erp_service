@@ -8,7 +8,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 库存实体（按公司+SKU 维度）
+ * 库存实体（按公司+店铺+SKU 维度）
  */
 @Data
 @TableName("inventory")
@@ -16,6 +16,7 @@ public class Inventory {
     @TableId(type = IdType.AUTO)
     private Long id;
     private String zid;
+    private Long sid;
     private Long productId;
     private String productName;
     private Long skuId;

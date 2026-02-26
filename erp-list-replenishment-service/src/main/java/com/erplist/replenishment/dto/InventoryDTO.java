@@ -7,6 +7,8 @@ import lombok.Data;
  */
 @Data
 public class InventoryDTO {
+    /** 店铺ID（所属店铺），创建时必填 */
+    private Long sid;
     private Long productId;
     private String productName;
     private Long skuId;
