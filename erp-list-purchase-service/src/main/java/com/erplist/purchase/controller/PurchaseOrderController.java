@@ -2,6 +2,7 @@ package com.erplist.purchase.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.erplist.common.result.Result;
+import com.erplist.purchase.dto.CreatePurchaseFromSuggestionsRequest;
 import com.erplist.purchase.dto.PurchaseOrderDTO;
 import com.erplist.purchase.dto.PurchaseOrderQueryDTO;
 import com.erplist.purchase.entity.PurchaseItem;
@@ -29,6 +30,18 @@ public class PurchaseOrderController {
     public Result<PurchaseOrder> createPurchaseOrder(@Validated @RequestBody PurchaseOrderDTO dto) {
         PurchaseOrder order = purchaseOrderService.createPurchaseOrder(dto);
         return Result.success(order);
+    }
+
+    @PostMapping("/from-suggestions")
+    public Result<PurchaseOrder> createPurchaseOrderFromSuggestions(@Validated @RequestBody CreatePurchaseFromSuggestionsRequest request) {
+        PurchaseOrder order = purchaseOrderService.createPurchaseOrderFromSuggestions(request);
+        return Result.success(order);
+    }
+
+    @PutMapping("/{id}/approve")
+    public Result<Void> approvePurchaseOrder(@PathVariable Long id) {
+        purchaseOrderService.approvePurchaseOrder(id);
+        return Result.success();
     }
 
     @GetMapping("/{id}")

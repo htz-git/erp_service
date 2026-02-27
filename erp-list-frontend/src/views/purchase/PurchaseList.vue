@@ -70,6 +70,11 @@
           <el-table-column prop="purchaserName" label="采购员" width="100" />
           <el-table-column prop="expectedArrivalTime" label="预计到货" min-width="170" />
           <el-table-column prop="createTime" label="创建时间" min-width="170" />
+          <el-table-column label="操作" width="90" fixed="right">
+            <template #default="{ row }">
+              <el-button type="primary" link @click="openDetail(row.id)">详情</el-button>
+            </template>
+          </el-table-column>
         </el-table>
       </div>
 
@@ -86,6 +91,50 @@
         />
       </div>
     </el-card>
+
+    <!-- 采购单详情抽屉 -->
+    <el-drawer
+      v-model="detailVisible"
+      title="采购单详情"
+      size="560px"
+      direction="rtl"
+      @closed="detailVisible = false"
+    >
+      <div v-loading="detailLoading" class="detail-body">
+        <template v-if="detail.order">
+          <el-steps :active="detailStepActive" finish-status="success" align-center class="detail-steps">
+            <el-step title="补货审核" />
+            <el-step title="审核通过" />
+            <el-step title="采购中" />
+            <el-step title="发货" />
+            <el-step title="已完成" />
+          </el-steps>
+          <div class="detail-info">
+            <p><span class="label">采购单号：</span>{{ detail.order.purchaseNo }}</p>
+            <p><span class="label">供应商：</span>{{ detail.order.supplierName ?? '-' }}</p>
+            <p><span class="label">总金额：</span>{{ detail.order.totalAmount ?? '-' }}</p>
+            <p><span class="label">状态：</span>{{ purchaseStatusText(detail.order.purchaseStatus) }}</p>
+            <p><span class="label">预计到货：</span>{{ detail.order.expectedArrivalTime ?? '-' }}</p>
+            <p><span class="label">创建时间：</span>{{ detail.order.createTime ?? '-' }}</p>
+            <p v-if="detail.order.approveTime"><span class="label">审核时间：</span>{{ detail.order.approveTime }}</p>
+          </div>
+          <div class="detail-items">
+            <div class="sub-title">采购商品</div>
+            <el-table :data="detail.items || []" border size="small" max-height="280">
+              <el-table-column prop="productName" label="商品名称" min-width="140" show-overflow-tooltip />
+              <el-table-column prop="skuCode" label="SKU" width="100" />
+              <el-table-column prop="purchasePrice" label="单价" width="90" align="right" />
+              <el-table-column prop="purchaseQuantity" label="数量" width="70" align="right" />
+              <el-table-column prop="totalPrice" label="小计" width="90" align="right" />
+              <el-table-column prop="arrivalQuantity" label="到货数" width="70" align="right" />
+            </el-table>
+          </div>
+          <div v-if="detail.order.purchaseStatus === 0" class="detail-actions">
+            <el-button type="primary" :loading="approving" @click="approveOrder">审核通过</el-button>
+          </div>
+        </template>
+      </div>
+    </el-drawer>
   </div>
 </template>
 
@@ -103,6 +152,10 @@ const loading = ref(false)
 const list = ref([])
 const shopOptions = ref([])
 const shopOptionsLoading = ref(false)
+const detailVisible = ref(false)
+const detailLoading = ref(false)
+const approving = ref(false)
+const detail = ref({ order: null, items: [] })
 
 const filterForm = ref({
   purchaseNo: '',
@@ -121,6 +174,48 @@ const pagination = reactive({
 const purchaseStatusMap = { 0: '待审核', 1: '已审核', 2: '采购中', 3: '部分到货', 4: '已完成', 5: '已取消' }
 function purchaseStatusText(v) {
   return v != null ? (purchaseStatusMap[v] ?? String(v)) : '-'
+}
+
+// 步骤条：0→第1步，1→第2步，…；已取消(5)不展示在步骤条，按 0 处理
+const detailStepActive = computed(() => {
+  const status = detail.value.order?.purchaseStatus
+  if (status == null || status === 5) return 0
+  if (status >= 0 && status <= 4) return status + 1
+  return 0
+})
+
+async function openDetail(id) {
+  detail.value = { order: null, items: [] }
+  detailVisible.value = true
+  detailLoading.value = true
+  try {
+    const res = await purchaseApi.getPurchaseOrderDetail(id)
+    const data = res?.data ?? res
+    detail.value = {
+      order: data.order ?? data,
+      items: data.items ?? []
+    }
+  } catch (e) {
+    ElMessage.error(e.message || '加载详情失败')
+    detail.value = { order: null, items: [] }
+  } finally {
+    detailLoading.value = false
+  }
+}
+
+async function approveOrder() {
+  const id = detail.value.order?.id
+  if (!id) return
+  approving.value = true
+  try {
+    await purchaseApi.approvePurchaseOrder(id)
+    ElMessage.success('已审核通过')
+    await openDetail(id)
+  } catch (e) {
+    ElMessage.error(e.message || '审核失败')
+  } finally {
+    approving.value = false
+  }
 }
 
 function buildParams() {
@@ -206,4 +301,13 @@ onMounted(() => {
 .table-wrapper { width: 100%; }
 .table-wrapper :deep(.el-table) { width: 100% !important; }
 .pagination-section { margin-top: 16px; display: flex; justify-content: flex-end; }
+
+.detail-body { padding: 0 8px; }
+.detail-steps { margin-bottom: 20px; }
+.detail-info { margin-bottom: 16px; font-size: 14px; }
+.detail-info .label { color: #606266; margin-right: 8px; }
+.detail-info p { margin: 6px 0; }
+.sub-title { font-weight: bold; margin-bottom: 8px; }
+.detail-items { margin-bottom: 16px; }
+.detail-actions { margin-top: 16px; }
 </style>

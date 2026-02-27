@@ -4,9 +4,11 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.erplist.common.exception.BusinessException;
 import com.erplist.common.utils.UserContext;
+import com.erplist.purchase.dto.CreatePurchaseFromSuggestionsRequest;
 import com.erplist.purchase.dto.PurchaseItemDTO;
 import com.erplist.purchase.dto.PurchaseOrderDTO;
 import com.erplist.purchase.dto.PurchaseOrderQueryDTO;
+import com.erplist.purchase.dto.SuggestionItemDTO;
 import com.erplist.purchase.entity.PurchaseItem;
 import com.erplist.purchase.entity.PurchaseOrder;
 import com.erplist.purchase.entity.Supplier;
@@ -21,8 +23,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * 采购单服务实现（支持 zid/sid 多租户）
@@ -154,6 +159,64 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         }
         wrapper.orderByDesc(PurchaseOrder::getCreateTime);
         return purchaseOrderMapper.selectPage(page, wrapper);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public PurchaseOrder createPurchaseOrderFromSuggestions(CreatePurchaseFromSuggestionsRequest request) {
+        String zid = UserContext.getZid();
+        if (!StringUtils.hasText(zid)) {
+            throw new BusinessException("未登录或缺少租户信息，仅能创建当前公司下的采购单");
+        }
+        List<SuggestionItemDTO> valid = request.getSuggestions().stream()
+                .filter(s -> s.getSuggestedQuantity() != null && s.getSuggestedQuantity() > 0)
+                .collect(Collectors.toList());
+        if (valid.isEmpty()) {
+            throw new BusinessException("没有有效的补货建议（建议补货量需大于0）");
+        }
+        Long sid = valid.get(0).getSid() != null ? valid.get(0).getSid() : UserContext.getSid();
+        Supplier supplier = supplierMapper.selectById(request.getSupplierId());
+        if (supplier == null) {
+            throw new BusinessException("供应商不存在");
+        }
+        PurchaseOrderDTO dto = new PurchaseOrderDTO();
+        dto.setSupplierId(request.getSupplierId());
+        dto.setSupplierName(supplier.getSupplierName());
+        dto.setSid(sid);
+        dto.setTotalAmount(BigDecimal.ZERO);
+        dto.setPurchaseStatus(0);
+        List<PurchaseItemDTO> items = new ArrayList<>();
+        for (SuggestionItemDTO s : valid) {
+            PurchaseItemDTO item = new PurchaseItemDTO();
+            item.setProductId(s.getProductId());
+            item.setProductName(s.getProductName() != null ? s.getProductName() : "");
+            item.setSkuId(s.getSkuId());
+            item.setSkuCode(s.getSkuCode());
+            item.setPurchasePrice(BigDecimal.ZERO);
+            item.setPurchaseQuantity(s.getSuggestedQuantity());
+            item.setTotalPrice(BigDecimal.ZERO);
+            items.add(item);
+        }
+        dto.setItems(items);
+        return createPurchaseOrder(dto);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void approvePurchaseOrder(Long id) {
+        PurchaseOrder order = purchaseOrderMapper.selectById(id);
+        if (order == null) {
+            throw new BusinessException("采购单不存在");
+        }
+        ensureSameZid(order.getZid());
+        if (order.getPurchaseStatus() == null || order.getPurchaseStatus() != 0) {
+            throw new BusinessException("仅待审核状态的采购单可审核通过");
+        }
+        order.setPurchaseStatus(1);
+        order.setApproveTime(LocalDateTime.now());
+        order.setApproverId(UserContext.getUserId());
+        order.setApproverName(null);
+        purchaseOrderMapper.updateById(order);
     }
 
     private void ensureSameZid(String entityZid) {

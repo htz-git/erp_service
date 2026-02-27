@@ -31,5 +31,19 @@ export const purchaseApi = {
 
   deletePurchaseOrder(id) {
     return request.delete(`/purchases/${id}`)
+  },
+
+  /** 根据补货建议生成采购单 body: { supplierId, suggestions: [{ sid, productId, productName, skuId, skuCode, suggestedQuantity }] } */
+  createPurchaseFromSuggestions(data) {
+    return request.post('/purchases/from-suggestions', data)
+  },
+
+  approvePurchaseOrder(id) {
+    return request.put(`/purchases/${id}/approve`)
+  },
+
+  /** 供应商列表，用于补货页选供应商 */
+  querySuppliers(params) {
+    return request.get('/suppliers', { params })
   }
 }

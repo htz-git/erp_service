@@ -46,11 +46,17 @@ spring:
             - Path=/api/products/**
           filters:
             - StripPrefix=1
-        # 采购服务
+        # 采购服务（采购单 + 供应商）
         - id: purchase-service
           uri: lb://erp-list-purchase-service
           predicates:
             - Path=/api/purchases/**
+          filters:
+            - StripPrefix=1
+        - id: supplier-service
+          uri: lb://erp-list-purchase-service
+          predicates:
+            - Path=/api/suppliers/**
           filters:
             - StripPrefix=1
         # 退款服务

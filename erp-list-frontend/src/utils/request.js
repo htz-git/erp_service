@@ -53,7 +53,12 @@ service.interceptors.response.use(
       userStore.logout()
       window.location.href = '/login'
     } else {
-      ElMessage.error(error.response?.data?.message || error.message || '网络错误')
+      const msg = error.response?.data?.message || error.response?.data?.msg || error.message
+      // 无 response 多为连接失败、超时、CORS 或网关未转发
+      const finalMsg = msg && msg !== 'Network Error'
+        ? msg
+        : '网络错误，请检查：1) 采购服务是否已启动 2) 网关是否配置 /api/purchases 路由 3) 网络与超时设置'
+      ElMessage.error(finalMsg)
     }
     return Promise.reject(error)
   }

@@ -1,6 +1,7 @@
 package com.erplist.purchase.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.erplist.purchase.dto.CreatePurchaseFromSuggestionsRequest;
 import com.erplist.purchase.dto.PurchaseOrderDTO;
 import com.erplist.purchase.dto.PurchaseOrderQueryDTO;
 import com.erplist.purchase.entity.PurchaseOrder;
@@ -13,6 +14,10 @@ import java.util.List;
 public interface PurchaseOrderService {
 
     PurchaseOrder createPurchaseOrder(PurchaseOrderDTO dto);
+
+    PurchaseOrder createPurchaseOrderFromSuggestions(CreatePurchaseFromSuggestionsRequest request);
+
+    void approvePurchaseOrder(Long id);
 
     PurchaseOrder getPurchaseOrderById(Long id);
 

@@ -68,18 +68,20 @@ public class LstmForecastServiceImpl implements LstmForecastService {
                 new org.deeplearning4j.nn.multilayer.MultiLayerNetwork(conf);
         net.init();
 
-        // 构造训练数据：滑动窗口 (X: seqLen 个点 -> y: 下一个点)
+        // 构造训练数据：滑动窗口 (X: seqLen 个点 -> 每个时间步预测下一时刻，labels 与 input 同长)
+        // DL4J RnnOutputLayer 要求 labels 的 sequence length 与 input 一致，即 [batch, nOut, seqLen]
         int nSamples = values.length - seqLen;
         if (nSamples < 2) {
             return predictMovingAverage(values, forecastDays);
         }
         INDArray input = Nd4j.create(nSamples, 1, seqLen);
-        INDArray labels = Nd4j.create(nSamples, 1);
+        INDArray labels = Nd4j.create(nSamples, 1, seqLen);
         for (int i = 0; i < nSamples; i++) {
             for (int t = 0; t < seqLen; t++) {
                 input.putScalar(i, 0, t, values[i + t]);
+                // 时间步 t 的标签 = 下一时刻的值 values[i+t+1]，最后一格 t=seqLen-1 即为 values[i+seqLen]
+                labels.putScalar(i, 0, t, values[i + t + 1]);
             }
-            labels.putScalar(i, 0, values[i + seqLen]);
         }
 
         for (int epoch = 0; epoch < LSTM_EPOCHS; epoch++) {
@@ -95,7 +97,8 @@ public class LstmForecastServiceImpl implements LstmForecastService {
                 x.putScalar(0, 0, t, lastSeq[t]);
             }
             INDArray out = net.output(x);
-            double pred = Math.max(0, out.getDouble(0, 0));
+            // 输出形状 [1, 1, seqLen]，取最后一个时间步作为“下一日”预测
+            double pred = Math.max(0, out.getDouble(0, 0, seqLen - 1));
             forecast.add(Math.round(pred * 100) / 100.0);
             // 滑动窗口：去掉第一个，末尾加上预测值
             double[] nextSeq = new double[seqLen];
