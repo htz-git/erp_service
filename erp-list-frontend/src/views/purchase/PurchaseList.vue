@@ -33,11 +33,13 @@
             </el-select>
           </el-form-item>
           <el-form-item label="采购状态">
-            <el-select v-model="filterForm.purchaseStatus" placeholder="全部" clearable style="width: 100px">
-              <el-option label="待提交" :value="0" />
-              <el-option label="待审批" :value="1" />
-              <el-option label="已通过" :value="2" />
-              <el-option label="已入库" :value="3" />
+            <el-select v-model="filterForm.purchaseStatus" placeholder="全部" clearable style="width: 110px">
+              <el-option label="待审核" :value="0" />
+              <el-option label="已审核" :value="1" />
+              <el-option label="采购中" :value="2" />
+              <el-option label="部分到货" :value="3" />
+              <el-option label="已完成" :value="4" />
+              <el-option label="已取消" :value="5" />
             </el-select>
           </el-form-item>
           <el-form-item>
@@ -47,8 +49,8 @@
         </el-form>
       </div>
 
-      <!-- 表格 -->
-      <div class="table-section">
+      <!-- 表格：最后一列不设固定宽度，自动填充右侧空白 -->
+      <div class="table-section table-wrapper">
         <el-table
           v-loading="loading"
           :data="list"
@@ -57,8 +59,8 @@
           style="width: 100%"
         >
           <el-table-column prop="id" label="ID" width="80" />
-          <el-table-column prop="purchaseNo" label="采购单号" width="160" show-overflow-tooltip />
-          <el-table-column prop="supplierName" label="供应商" width="120" show-overflow-tooltip />
+          <el-table-column prop="purchaseNo" label="采购单号" min-width="160" show-overflow-tooltip />
+          <el-table-column prop="supplierName" label="供应商" min-width="120" show-overflow-tooltip />
           <el-table-column prop="totalAmount" label="总金额" width="100" align="right">
             <template #default="{ row }">{{ row.totalAmount ?? '-' }}</template>
           </el-table-column>
@@ -66,8 +68,8 @@
             <template #default="{ row }">{{ purchaseStatusText(row.purchaseStatus) }}</template>
           </el-table-column>
           <el-table-column prop="purchaserName" label="采购员" width="100" />
-          <el-table-column prop="expectedArrivalTime" label="预计到货" width="170" />
-          <el-table-column prop="createTime" label="创建时间" width="170" />
+          <el-table-column prop="expectedArrivalTime" label="预计到货" min-width="170" />
+          <el-table-column prop="createTime" label="创建时间" min-width="170" />
         </el-table>
       </div>
 
@@ -115,9 +117,10 @@ const pagination = reactive({
   total: 0
 })
 
-const purchaseStatusMap = { 0: '待提交', 1: '待审批', 2: '已通过', 3: '已入库' }
+// 与建表一致：0-待审核，1-已审核，2-采购中，3-部分到货，4-已完成，5-已取消
+const purchaseStatusMap = { 0: '待审核', 1: '已审核', 2: '采购中', 3: '部分到货', 4: '已完成', 5: '已取消' }
 function purchaseStatusText(v) {
-  return v != null ? purchaseStatusMap[v] ?? v : '-'
+  return v != null ? (purchaseStatusMap[v] ?? String(v)) : '-'
 }
 
 function buildParams() {
@@ -200,5 +203,7 @@ onMounted(() => {
 .filter-section { margin-bottom: 16px; }
 .filter-form { margin: 0; }
 .table-section { margin-top: 12px; }
+.table-wrapper { width: 100%; }
+.table-wrapper :deep(.el-table) { width: 100% !important; }
 .pagination-section { margin-top: 16px; display: flex; justify-content: flex-end; }
 </style>
