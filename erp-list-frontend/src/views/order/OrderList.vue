@@ -85,7 +85,7 @@
       </div>
 
       <!-- 表格 -->
-      <div class="table-section">
+      <div class="table-section table-wrapper">
         <el-table
           v-loading="loading"
           :data="list"
@@ -94,7 +94,7 @@
           style="width: 100%"
         >
           <el-table-column prop="id" label="ID" width="80" />
-          <el-table-column prop="orderNo" label="订单号" width="160" show-overflow-tooltip />
+          <el-table-column prop="orderNo" label="订单号" min-width="160" show-overflow-tooltip />
           <el-table-column prop="userId" label="用户ID" width="90" />
           <el-table-column prop="zid" label="zid" width="80" />
           <el-table-column prop="sid" label="sid" width="80" />
@@ -105,7 +105,7 @@
           <el-table-column prop="payAmount" label="实付" width="100" align="right">
             <template #default="{ row }">{{ row.payAmount ?? '-' }}</template>
           </el-table-column>
-          <el-table-column prop="promotionDiscountAmount" label="促销折扣金额" width="120" align="right">
+          <el-table-column prop="promotionDiscountAmount" label="促销折扣金额" min-width="120" align="right">
             <template #default="{ row }">{{ row.promotionDiscountAmount ?? '-' }}</template>
           </el-table-column>
           <el-table-column prop="taxAmount" label="税费" width="100" align="right">
@@ -117,8 +117,8 @@
           <el-table-column prop="payStatus" label="支付状态" width="90" align="center">
             <template #default="{ row }">{{ payStatusText(row.payStatus) }}</template>
           </el-table-column>
-          <el-table-column prop="receiverName" label="收货人" width="100" />
-          <el-table-column prop="createTime" label="创建时间" width="170" />
+          <el-table-column prop="receiverName" label="收货人" min-width="100" />
+          <el-table-column prop="createTime" label="创建时间" min-width="170" />
           <el-table-column label="操作" width="80" fixed="right">
             <template #default="{ row }">
               <el-button type="primary" link @click="openDetail(row.id)">详情</el-button>
@@ -404,6 +404,8 @@ onMounted(() => {
 .filter-section { margin-bottom: 16px; }
 .filter-form { margin: 0; }
 .table-section { margin-top: 12px; }
+.table-wrapper { width: 100%; }
+.table-wrapper :deep(.el-table) { width: 100% !important; }
 .pagination-section { margin-top: 16px; display: flex; justify-content: flex-end; }
 
 /* 订单详情：居中卡片布局 */

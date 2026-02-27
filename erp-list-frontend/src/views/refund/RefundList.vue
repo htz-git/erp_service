@@ -39,11 +39,12 @@
             </el-select>
           </el-form-item>
           <el-form-item label="退款状态">
-            <el-select v-model="filterForm.refundStatus" placeholder="全部" clearable style="width: 100px">
+            <el-select v-model="filterForm.refundStatus" placeholder="全部" clearable style="width: 120px">
               <el-option label="待审核" :value="0" />
               <el-option label="已通过" :value="1" />
               <el-option label="已拒绝" :value="2" />
-              <el-option label="已退款" :value="3" />
+              <el-option label="退款中" :value="3" />
+              <el-option label="退款成功" :value="4" />
             </el-select>
           </el-form-item>
           <el-form-item>
@@ -124,9 +125,9 @@ const pagination = reactive({
   total: 0
 })
 
-const refundStatusMap = { 0: '待审核', 1: '已通过', 2: '已拒绝', 3: '已退款' }
+const refundStatusMap = { 0: '待审核', 1: '已通过', 2: '已拒绝', 3: '退款中', 4: '退款成功' }
 function refundStatusText(v) {
-  return v != null ? refundStatusMap[v] ?? v : '-'
+  return v != null ? (refundStatusMap[v] ?? String(v)) : '-'
 }
 
 function buildParams() {
