@@ -19,6 +19,8 @@ public class RefundApplicationDTO {
 
     private String orderNo;
 
+    private Long orderItemId;
+
     @NotNull(message = "用户ID不能为空")
     private Long userId;
 

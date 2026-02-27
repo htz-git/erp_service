@@ -32,6 +32,14 @@ public class RefundApplicationServiceImpl implements RefundApplicationService {
             throw new BusinessException("未登录或缺少租户信息，仅能创建当前公司下的退款申请");
         }
         Long sid = dto.getSid() != null ? dto.getSid() : UserContext.getSid();
+        if (dto.getOrderItemId() != null) {
+            LambdaQueryWrapper<RefundApplication> existWrapper = new LambdaQueryWrapper<>();
+            existWrapper.eq(RefundApplication::getOrderId, dto.getOrderId())
+                .eq(RefundApplication::getOrderItemId, dto.getOrderItemId());
+            if (refundApplicationMapper.selectCount(existWrapper) > 0) {
+                throw new BusinessException("该订单该商品已存在退款申请");
+            }
+        }
         RefundApplication entity = new RefundApplication();
         BeanUtils.copyProperties(dto, entity);
         entity.setZid(zid);
@@ -94,6 +102,9 @@ public class RefundApplicationServiceImpl implements RefundApplicationService {
         }
         if (queryDTO.getOrderId() != null) {
             wrapper.eq(RefundApplication::getOrderId, queryDTO.getOrderId());
+        }
+        if (queryDTO.getOrderItemId() != null) {
+            wrapper.eq(RefundApplication::getOrderItemId, queryDTO.getOrderItemId());
         }
         if (StringUtils.hasText(queryDTO.getOrderNo())) {
             wrapper.eq(RefundApplication::getOrderNo, queryDTO.getOrderNo());

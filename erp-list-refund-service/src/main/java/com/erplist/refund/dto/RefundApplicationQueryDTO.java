@@ -12,6 +12,7 @@ public class RefundApplicationQueryDTO {
     private String refundNo;
     private Long orderId;
     private String orderNo;
+    private Long orderItemId;
     private Long userId;
     private Long paymentId;
     private Integer refundStatus;

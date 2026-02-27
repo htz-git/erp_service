@@ -66,6 +66,9 @@
           <el-table-column prop="id" label="ID" width="80" />
           <el-table-column prop="refundNo" label="退款单号" width="160" show-overflow-tooltip />
           <el-table-column prop="orderNo" label="订单号" width="160" show-overflow-tooltip />
+          <el-table-column label="订单明细" width="100" align="center">
+            <template #default="{ row }">{{ row.orderItemId != null ? '商品退款' : '-' }}</template>
+          </el-table-column>
           <el-table-column prop="userId" label="用户ID" width="90" />
           <el-table-column prop="refundAmount" label="退款金额" width="100" align="right">
             <template #default="{ row }">{{ row.refundAmount ?? '-' }}</template>

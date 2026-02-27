@@ -214,6 +214,18 @@
                 <el-table-column label="小计" width="100" align="right">
                   <template #default="{ row }">¥ {{ row.totalPrice ?? '-' }}</template>
                 </el-table-column>
+                <el-table-column label="操作" width="100" align="center" fixed="right">
+                  <template #default="{ row }">
+                    <el-button
+                      type="primary"
+                      link
+                      :disabled="itemHasRefund(row.id) || orderDetail.payStatus !== 1"
+                      @click="openRefundDialog(row)"
+                    >
+                      申请退款
+                    </el-button>
+                  </template>
+                </el-table-column>
               </el-table>
             </el-card>
 
@@ -224,6 +236,43 @@
           </template>
         </div>
       </el-drawer>
+
+      <!-- 申请退款弹窗 -->
+      <el-dialog
+        v-model="refundDialogVisible"
+        title="申请退款"
+        width="440px"
+        destroy-on-close
+        @close="refundDialogItem = null"
+      >
+        <template v-if="refundDialogItem && orderDetail">
+          <div class="refund-dialog-info">
+            <p><span class="label">订单号：</span>{{ orderDetail.orderNo }}</p>
+            <p><span class="label">商品：</span>{{ refundDialogItem.productName || '-' }}</p>
+            <p><span class="label">SKU：</span>{{ refundDialogItem.skuCode || '-' }}</p>
+            <p><span class="label">退款金额：</span>¥ {{ refundDialogItem.totalPrice ?? '-' }}</p>
+          </div>
+          <el-form ref="refundFormRef" :model="refundForm" label-width="80px">
+            <el-form-item label="退款原因">
+              <el-select v-model="refundForm.refundReasonId" placeholder="请选择" clearable style="width: 100%">
+                <el-option
+                  v-for="r in refundReasonOptions"
+                  :key="r.id"
+                  :label="r.reasonName"
+                  :value="r.id"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="备注">
+              <el-input v-model="refundForm.remark" type="textarea" :rows="2" placeholder="选填" />
+            </el-form-item>
+          </el-form>
+        </template>
+        <template #footer>
+          <el-button @click="refundDialogVisible = false">取消</el-button>
+          <el-button type="primary" :loading="refundSubmitLoading" @click="submitRefund">确认</el-button>
+        </template>
+      </el-dialog>
 
       <!-- 分页 -->
       <div class="pagination-section">
@@ -245,8 +294,10 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/store/user'
+import { Picture } from '@element-plus/icons-vue'
 import { orderApi } from '@/api/order'
 import { sellerApi } from '@/api/seller'
+import { refundApi } from '@/api/refund'
 
 const userStore = useUserStore()
 const currentZid = computed(() => userStore.currentZid())
@@ -360,14 +411,31 @@ function handleReset() {
 const detailVisible = ref(false)
 const detailLoading = ref(false)
 const orderDetail = ref(null)
+const refundsOfCurrentOrder = ref([])
+const refundReasonOptions = ref([])
+const refundDialogVisible = ref(false)
+const refundDialogItem = ref(null)
+const refundFormRef = ref(null)
+const refundForm = ref({ refundReasonId: null, remark: '' })
+const refundSubmitLoading = ref(false)
+
+function itemHasRefund(itemId) {
+  if (itemId == null) return false
+  return (refundsOfCurrentOrder.value || []).some(r => r.orderItemId === itemId)
+}
 
 async function openDetail(id) {
   detailVisible.value = true
   orderDetail.value = null
+  refundsOfCurrentOrder.value = []
   detailLoading.value = true
   try {
     const res = await orderApi.getOrderById(id)
     orderDetail.value = res.data ?? null
+    if (id != null) {
+      const refRes = await refundApi.queryRefundApplications({ orderId: id, pageSize: 100 })
+      refundsOfCurrentOrder.value = refRes.data?.records ?? []
+    }
   } catch (e) {
     ElMessage.error(e.message || '加载详情失败')
   } finally {
@@ -392,8 +460,62 @@ async function loadShopOptions() {
   }
 }
 
+async function loadRefundReasons() {
+  if (refundReasonOptions.value.length) return
+  try {
+    const res = await refundApi.getRefundReasons()
+    refundReasonOptions.value = res.data ?? []
+  } catch {
+    refundReasonOptions.value = []
+  }
+}
+
+function openRefundDialog(row) {
+  if (!orderDetail.value) return
+  refundDialogItem.value = row
+  refundForm.value = { refundReasonId: null, remark: '' }
+  refundDialogVisible.value = true
+  loadRefundReasons()
+}
+
+async function submitRefund() {
+  const item = refundDialogItem.value
+  const order = orderDetail.value
+  if (!item || !order) return
+  const zid = currentZid.value
+  const reasonOpt = refundReasonOptions.value.find(r => r.id === refundForm.value.refundReasonId)
+  const payload = {
+    orderId: order.id,
+    orderNo: order.orderNo,
+    orderItemId: item.id,
+    refundAmount: item.totalPrice,
+    userId: userStore.userId ?? 1,
+    paymentId: 0,
+    paymentNo: 'PAY-' + order.orderNo,
+    zid: zid ?? undefined,
+    sid: order.sid ?? undefined,
+    refundReasonId: refundForm.value.refundReasonId || undefined,
+    refundReason: reasonOpt ? reasonOpt.reasonName : undefined,
+    remark: refundForm.value.remark || undefined
+  }
+  refundSubmitLoading.value = true
+  try {
+    await refundApi.createRefundApplication(payload)
+    ElMessage.success('申请成功')
+    refundDialogVisible.value = false
+    const refRes = await refundApi.queryRefundApplications({ orderId: order.id, pageSize: 100 })
+    refundsOfCurrentOrder.value = refRes.data?.records ?? []
+  } catch (e) {
+    const msg = e?.response?.data?.message ?? e?.message ?? '申请失败'
+    ElMessage.error(msg)
+  } finally {
+    refundSubmitLoading.value = false
+  }
+}
+
 onMounted(() => {
   loadShopOptions()
+  loadRefundReasons()
   fetchList()
 })
 </script>
@@ -510,4 +632,11 @@ onMounted(() => {
   font-size: 16px;
   color: var(--el-color-primary);
 }
+
+.refund-dialog-info {
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+.refund-dialog-info p { margin: 6px 0; }
+.refund-dialog-info .label { color: var(--el-text-color-secondary); margin-right: 4px; }
 </style>
