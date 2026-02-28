@@ -3,6 +3,7 @@ package com.erplist.refund.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.erplist.refund.dto.RefundApplicationDTO;
 import com.erplist.refund.dto.RefundApplicationQueryDTO;
+import com.erplist.refund.dto.RefundListVO;
 import com.erplist.refund.entity.RefundApplication;
 
 import java.util.List;
@@ -20,7 +21,7 @@ public interface RefundApplicationService {
 
     void deleteRefundApplication(Long id);
 
-    Page<RefundApplication> queryRefundApplications(RefundApplicationQueryDTO queryDTO);
+    Page<RefundListVO> queryRefundApplications(RefundApplicationQueryDTO queryDTO);
 
     /**
      * 批量查询哪些订单存在已退款记录（refundStatus=1 已通过），供订单列表展示“退款”标签

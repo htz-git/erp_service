@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.erplist.common.result.Result;
 import com.erplist.refund.dto.RefundApplicationDTO;
 import com.erplist.refund.dto.RefundApplicationQueryDTO;
+import com.erplist.refund.dto.RefundListVO;
 import com.erplist.refund.entity.RefundApplication;
 import com.erplist.refund.entity.RefundReason;
 import com.erplist.refund.service.RefundApplicationService;
@@ -66,8 +67,8 @@ public class RefundController {
     }
 
     @GetMapping
-    public Result<Page<RefundApplication>> queryRefundApplications(RefundApplicationQueryDTO queryDTO) {
-        Page<RefundApplication> page = refundApplicationService.queryRefundApplications(queryDTO);
+    public Result<Page<RefundListVO>> queryRefundApplications(RefundApplicationQueryDTO queryDTO) {
+        Page<RefundListVO> page = refundApplicationService.queryRefundApplications(queryDTO);
         return Result.success(page);
     }
 }

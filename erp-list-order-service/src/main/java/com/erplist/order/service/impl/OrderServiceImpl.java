@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.erplist.common.exception.BusinessException;
 import com.erplist.common.utils.UserContext;
 import com.erplist.api.dto.CountryOrderCountDTO;
+import com.erplist.api.dto.OrderItemImageDTO;
 import com.erplist.api.dto.SalesTimeSeriesItemDTO;
 import com.erplist.order.dto.OrderDTO;
 import com.erplist.order.dto.OrderDetailVO;
@@ -237,6 +238,22 @@ public class OrderServiceImpl implements OrderService {
             }
         }
         return list;
+    }
+
+    @Override
+    public List<OrderItemImageDTO> getOrderItemProductImages(List<Long> orderItemIds) {
+        if (orderItemIds == null || orderItemIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        LambdaQueryWrapper<OrderItem> wrapper = new LambdaQueryWrapper<>();
+        wrapper.in(OrderItem::getId, orderItemIds).select(OrderItem::getId, OrderItem::getProductImage);
+        List<OrderItem> items = orderItemMapper.selectList(wrapper);
+        if (items == null || items.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return items.stream()
+            .map(item -> new OrderItemImageDTO(item.getId(), item.getProductImage()))
+            .collect(Collectors.toList());
     }
 
     private void ensureSameZid(String entityZid) {

@@ -7,6 +7,7 @@ import com.erplist.order.dto.OrderDTO;
 import com.erplist.order.dto.OrderDetailVO;
 import com.erplist.order.dto.OrderListVO;
 import com.erplist.order.dto.OrderQueryDTO;
+import com.erplist.api.dto.OrderItemImageDTO;
 import com.erplist.order.entity.Order;
 
 import java.time.LocalDate;
@@ -36,4 +37,9 @@ public interface OrderService {
      * 按国家统计订单数，供首页地图使用
      */
     List<CountryOrderCountDTO> getOrderStatsByCountry(String zid, Long sid, LocalDate startDate, LocalDate endDate);
+
+    /**
+     * 根据订单项 ID 列表查询商品图，供退款列表展示
+     */
+    List<OrderItemImageDTO> getOrderItemProductImages(List<Long> orderItemIds);
 }

@@ -10,6 +10,7 @@ import com.erplist.order.dto.OrderListVO;
 import com.erplist.order.dto.OrderQueryDTO;
 import com.erplist.order.entity.Order;
 import com.erplist.order.service.OrderService;
+import com.erplist.api.dto.OrderItemImageDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.validation.annotation.Validated;
@@ -91,6 +92,15 @@ public class OrderController {
             @RequestParam(value = "startDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(value = "endDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         List<CountryOrderCountDTO> list = orderService.getOrderStatsByCountry(zid, sid, startDate, endDate);
+        return Result.success(list);
+    }
+
+    /**
+     * 根据订单项 ID 列表查询商品图，供退款服务等展示
+     */
+    @GetMapping("/items/product-images")
+    public Result<List<OrderItemImageDTO>> getOrderItemProductImages(@RequestParam("orderItemIds") List<Long> orderItemIds) {
+        List<OrderItemImageDTO> list = orderService.getOrderItemProductImages(orderItemIds);
         return Result.success(list);
     }
 }

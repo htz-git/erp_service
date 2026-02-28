@@ -1,5 +1,6 @@
 package com.erplist.api.client;
 
+import com.erplist.api.dto.OrderItemImageDTO;
 import com.erplist.api.dto.SalesTimeSeriesItemDTO;
 import com.erplist.common.result.Result;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -40,4 +41,10 @@ public interface OrderClient {
             @RequestParam("endDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @RequestParam(value = "skuId", required = false) Long skuId
     );
+
+    /**
+     * 根据订单项 ID 列表查询商品图，供退款列表展示
+     */
+    @GetMapping("/orders/items/product-images")
+    Result<List<OrderItemImageDTO>> getOrderItemProductImages(@RequestParam("orderItemIds") List<Long> orderItemIds);
 }

@@ -64,6 +64,20 @@
           style="width: 100%"
         >
           <el-table-column prop="id" label="ID" width="80" />
+          <el-table-column label="商品图" width="80" align="center">
+            <template #default="{ row }">
+              <el-image
+                v-if="refundProductImage(row)"
+                :src="refundProductImage(row)"
+                fit="cover"
+                class="refund-list-product-img"
+                :preview-src-list="[refundProductImage(row)]"
+              />
+              <div v-else class="refund-list-img-placeholder">
+                <el-icon :size="20"><Picture /></el-icon>
+              </div>
+            </template>
+          </el-table-column>
           <el-table-column prop="refundNo" label="退款单号" width="160" show-overflow-tooltip />
           <el-table-column prop="orderNo" label="订单号" width="160" show-overflow-tooltip />
           <el-table-column label="订单明细" width="100" align="center">
@@ -101,6 +115,7 @@
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Picture } from '@element-plus/icons-vue'
 import { useUserStore } from '@/store/user'
 import { refundApi } from '@/api/refund'
 import { sellerApi } from '@/api/seller'
@@ -131,6 +146,11 @@ const pagination = reactive({
 const refundStatusMap = { 0: '待审核', 1: '已通过', 2: '已拒绝', 3: '退款中', 4: '退款成功' }
 function refundStatusText(v) {
   return v != null ? (refundStatusMap[v] ?? String(v)) : '-'
+}
+
+function refundProductImage(row) {
+  const url = row?.productImageUrl ?? row?.product_image_url ?? ''
+  return url || ''
 }
 
 function buildParams() {
@@ -218,4 +238,22 @@ onMounted(() => {
 .filter-form { margin: 0; }
 .table-section { margin-top: 12px; }
 .pagination-section { margin-top: 16px; display: flex; justify-content: flex-end; }
+
+.refund-list-product-img {
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  display: block;
+  object-fit: cover;
+}
+.refund-list-img-placeholder {
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  background: var(--el-fill-color-light);
+  color: var(--el-text-color-placeholder);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
 </style>
