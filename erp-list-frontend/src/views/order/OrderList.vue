@@ -105,7 +105,14 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column prop="orderNo" label="订单号" min-width="160" show-overflow-tooltip />
+          <el-table-column label="订单号" min-width="180">
+            <template #default="{ row }">
+              <div class="order-no-cell">
+                <span class="order-no-text">{{ row.orderNo }}</span>
+                <el-tag v-if="row.hasRefund" type="warning" size="small" class="refund-tag">退款</el-tag>
+              </div>
+            </template>
+          </el-table-column>
           <el-table-column label="店铺" min-width="100">
             <template #default="{ row }">{{ storeNameBySid(row.sid) }}</template>
           </el-table-column>
@@ -123,10 +130,7 @@
             <template #default="{ row }">{{ row.taxAmount ?? '-' }}</template>
           </el-table-column>
           <el-table-column prop="orderStatus" label="订单状态" width="90" align="center">
-            <template #default="{ row }">
-              <span>{{ orderStatusText(row.orderStatus) }}</span>
-              <el-tag v-if="row.hasRefund" type="warning" size="small" class="refund-tag">退款</el-tag>
-            </template>
+            <template #default="{ row }">{{ orderStatusText(row.orderStatus) }}</template>
           </el-table-column>
           <el-table-column prop="payStatus" label="支付状态" width="90" align="center">
             <template #default="{ row }">{{ payStatusText(row.payStatus) }}</template>
@@ -400,19 +404,24 @@ async function fetchList() {
   try {
     const res = await orderApi.queryOrders(buildParams())
     const rows = res.data?.records ?? []
-    list.value = rows
     pagination.total = res.data?.total ?? 0
     // 批量查已退款订单，用于列表展示“退款”标签
     const orderIds = (rows || []).map(r => r.id).filter(Boolean)
+    let refundOrderIdSet = new Set()
     if (orderIds.length > 0) {
       try {
         const refRes = await refundApi.getOrderIdsWithRefund(orderIds)
-        const refundOrderIds = new Set(refRes.data ?? [])
-        rows.forEach(r => { r.hasRefund = refundOrderIds.has(r.id) })
+        const arr = refRes?.data ?? (Array.isArray(refRes) ? refRes : [])
+        refundOrderIdSet = new Set(Array.isArray(arr) ? arr : [])
       } catch (_) {
-        rows.forEach(r => { r.hasRefund = false })
+        refundOrderIdSet = new Set()
       }
     }
+    // 合并 hasRefund 并赋给 list，保证响应式更新
+    list.value = (rows || []).map(r => ({
+      ...r,
+      hasRefund: refundOrderIdSet.has(r.id)
+    }))
   } catch (e) {
     list.value = []
     ElMessage.error(e.message || '加载失败')
@@ -584,7 +593,14 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
 }
-.refund-tag { margin-left: 6px; }
+.order-no-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.order-no-text { overflow: hidden; text-overflow: ellipsis; }
+.refund-tag { flex-shrink: 0; }
 
 /* 订单详情：居中卡片布局 */
 .order-detail-wrap {

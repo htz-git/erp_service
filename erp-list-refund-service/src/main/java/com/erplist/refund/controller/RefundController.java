@@ -13,7 +13,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 退款控制器（网关路径 /api/refunds）
@@ -40,27 +43,43 @@ public class RefundController {
 
     /**
      * 批量查询存在已退款记录的订单 ID，供订单列表展示“退款”标签
-     * @param orderIds 订单 ID 列表，逗号分隔
+     * @param orderIds 订单 ID 列表，逗号分隔，如 1,2,3
      */
     @GetMapping("/order-ids-with-refund")
-    public Result<List<Long>> getOrderIdsWithRefund(@RequestParam("orderIds") List<Long> orderIds) {
+    public Result<List<Long>> getOrderIdsWithRefund(@RequestParam(value = "orderIds", required = false) String orderIdsStr) {
+        List<Long> orderIds = parseOrderIds(orderIdsStr);
         List<Long> list = refundApplicationService.getOrderIdsWithRefund(orderIds);
         return Result.success(list);
     }
 
-    @GetMapping("/{id}")
+    private static List<Long> parseOrderIds(String orderIdsStr) {
+        if (orderIdsStr == null || orderIdsStr.trim().isEmpty()) {
+            return Collections.emptyList();
+        }
+        try {
+            return Arrays.stream(orderIdsStr.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(Long::parseLong)
+                .collect(Collectors.toList());
+        } catch (NumberFormatException e) {
+            return Collections.emptyList();
+        }
+    }
+
+    @GetMapping("/{id:\\d+}")
     public Result<RefundApplication> getRefundApplicationById(@PathVariable Long id) {
         RefundApplication entity = refundApplicationService.getRefundApplicationById(id);
         return Result.success(entity);
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/{id:\\d+}")
     public Result<RefundApplication> updateRefundApplication(@PathVariable Long id, @Validated @RequestBody RefundApplicationDTO dto) {
         RefundApplication entity = refundApplicationService.updateRefundApplication(id, dto);
         return Result.success(entity);
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{id:\\d+}")
     public Result<Void> deleteRefundApplication(@PathVariable Long id) {
         refundApplicationService.deleteRefundApplication(id);
         return Result.success();

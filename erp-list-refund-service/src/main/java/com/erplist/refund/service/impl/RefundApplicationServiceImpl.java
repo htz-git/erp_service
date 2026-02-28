@@ -166,8 +166,8 @@ public class RefundApplicationServiceImpl implements RefundApplicationService {
         return voPage;
     }
 
-    /** 已退款状态：1=已通过/已退款 */
-    private static final int REFUND_STATUS_REFUNDED = 1;
+    /** 已退款状态：1=已通过，4=退款成功（订单列表“退款”标签均展示） */
+    private static final java.util.List<Integer> REFUND_STATUS_REFUNDED = java.util.Arrays.asList(1, 4);
 
     @Override
     public List<Long> getOrderIdsWithRefund(List<Long> orderIds) {
@@ -181,7 +181,7 @@ public class RefundApplicationServiceImpl implements RefundApplicationService {
         LambdaQueryWrapper<RefundApplication> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(RefundApplication::getZid, zid)
             .in(RefundApplication::getOrderId, orderIds)
-            .eq(RefundApplication::getRefundStatus, REFUND_STATUS_REFUNDED)
+            .in(RefundApplication::getRefundStatus, REFUND_STATUS_REFUNDED)
             .select(RefundApplication::getOrderId);
         List<RefundApplication> list = refundApplicationMapper.selectList(wrapper);
         if (list == null || list.isEmpty()) {
