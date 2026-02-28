@@ -13,9 +13,6 @@
           <el-form-item label="订单号">
             <el-input v-model="filterForm.orderNo" placeholder="订单号" clearable style="width: 160px" />
           </el-form-item>
-          <el-form-item label="用户ID">
-            <el-input v-model.number="filterForm.userId" placeholder="用户ID" clearable style="width: 120px" />
-          </el-form-item>
           <el-form-item label="店铺">
             <el-select
               v-model="filterForm.sid"
@@ -94,10 +91,24 @@
           style="width: 100%"
         >
           <el-table-column prop="id" label="ID" width="80" />
+          <el-table-column label="商品图" width="80" align="center">
+            <template #default="{ row }">
+              <el-image
+                v-if="firstItemImage(row)"
+                :src="firstItemImage(row)"
+                fit="cover"
+                class="order-list-product-img"
+                :preview-src-list="[firstItemImage(row)]"
+              />
+              <div v-else class="order-list-img-placeholder">
+                <el-icon :size="20"><Picture /></el-icon>
+              </div>
+            </template>
+          </el-table-column>
           <el-table-column prop="orderNo" label="订单号" min-width="160" show-overflow-tooltip />
-          <el-table-column prop="userId" label="用户ID" width="90" />
-          <el-table-column prop="zid" label="zid" width="80" />
-          <el-table-column prop="sid" label="sid" width="80" />
+          <el-table-column label="店铺" min-width="100">
+            <template #default="{ row }">{{ storeNameBySid(row.sid) }}</template>
+          </el-table-column>
           <el-table-column prop="countryCode" label="国家" width="80" />
           <el-table-column prop="totalAmount" label="总金额" width="100" align="right">
             <template #default="{ row }">{{ row.totalAmount ?? '-' }}</template>
@@ -112,7 +123,10 @@
             <template #default="{ row }">{{ row.taxAmount ?? '-' }}</template>
           </el-table-column>
           <el-table-column prop="orderStatus" label="订单状态" width="90" align="center">
-            <template #default="{ row }">{{ orderStatusText(row.orderStatus) }}</template>
+            <template #default="{ row }">
+              <span>{{ orderStatusText(row.orderStatus) }}</span>
+              <el-tag v-if="row.hasRefund" type="warning" size="small" class="refund-tag">退款</el-tag>
+            </template>
           </el-table-column>
           <el-table-column prop="payStatus" label="支付状态" width="90" align="center">
             <template #default="{ row }">{{ payStatusText(row.payStatus) }}</template>
@@ -309,7 +323,6 @@ const shopOptionsLoading = ref(false)
 
 const filterForm = ref({
   orderNo: '',
-  userId: null,
   sid: null,
   orderStatus: null,
   payStatus: null,
@@ -348,6 +361,19 @@ function itemProductImage(item) {
   return item?.productImage || item?.product_image || ''
 }
 
+/** 订单列表行：取首件商品图（后端 OrderListVO.firstItemImageUrl） */
+function firstItemImage(row) {
+  const url = row?.firstItemImageUrl ?? row?.first_item_image_url ?? ''
+  return url || ''
+}
+
+/** 根据 sid 显示店铺名称（用 shopOptions） */
+function storeNameBySid(sid) {
+  if (sid == null || sid === '') return '-'
+  const s = (shopOptions.value || []).find(o => o.id === sid)
+  return s ? (s.sellerName || s.seller_name || `店铺 ${sid}`) : `店铺 ${sid}`
+}
+
 function buildParams() {
   const p = {
     pageNum: pagination.pageNum,
@@ -357,7 +383,6 @@ function buildParams() {
   const zid = currentZid.value
   if (zid != null && zid !== '') p.zid = zid
   if (filterForm.value.orderNo) p.orderNo = filterForm.value.orderNo
-  if (filterForm.value.userId != null && filterForm.value.userId !== '') p.userId = filterForm.value.userId
   if (filterForm.value.sid != null && filterForm.value.sid !== '') p.sid = filterForm.value.sid
   if (filterForm.value.orderStatus !== null && filterForm.value.orderStatus !== '') p.orderStatus = filterForm.value.orderStatus
   if (filterForm.value.payStatus !== null && filterForm.value.payStatus !== '') p.payStatus = filterForm.value.payStatus
@@ -374,8 +399,20 @@ async function fetchList() {
   loading.value = true
   try {
     const res = await orderApi.queryOrders(buildParams())
-    list.value = res.data?.records ?? []
+    const rows = res.data?.records ?? []
+    list.value = rows
     pagination.total = res.data?.total ?? 0
+    // 批量查已退款订单，用于列表展示“退款”标签
+    const orderIds = (rows || []).map(r => r.id).filter(Boolean)
+    if (orderIds.length > 0) {
+      try {
+        const refRes = await refundApi.getOrderIdsWithRefund(orderIds)
+        const refundOrderIds = new Set(refRes.data ?? [])
+        rows.forEach(r => { r.hasRefund = refundOrderIds.has(r.id) })
+      } catch (_) {
+        rows.forEach(r => { r.hasRefund = false })
+      }
+    }
   } catch (e) {
     list.value = []
     ElMessage.error(e.message || '加载失败')
@@ -397,7 +434,6 @@ function handleSearch() {
 function handleReset() {
   filterForm.value = {
     orderNo: '',
-    userId: null,
     sid: null,
     orderStatus: null,
     payStatus: null,
@@ -529,6 +565,26 @@ onMounted(() => {
 .table-wrapper { width: 100%; }
 .table-wrapper :deep(.el-table) { width: 100% !important; }
 .pagination-section { margin-top: 16px; display: flex; justify-content: flex-end; }
+
+/* 订单列表：商品图、退款标签 */
+.order-list-product-img {
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  display: block;
+  object-fit: cover;
+}
+.order-list-img-placeholder {
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  background: var(--el-fill-color-light);
+  color: var(--el-text-color-placeholder);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.refund-tag { margin-left: 6px; }
 
 /* 订单详情：居中卡片布局 */
 .order-detail-wrap {

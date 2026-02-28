@@ -6,6 +6,7 @@ import com.erplist.api.dto.CountryOrderCountDTO;
 import com.erplist.api.dto.SalesTimeSeriesItemDTO;
 import com.erplist.order.dto.OrderDTO;
 import com.erplist.order.dto.OrderDetailVO;
+import com.erplist.order.dto.OrderListVO;
 import com.erplist.order.dto.OrderQueryDTO;
 import com.erplist.order.entity.Order;
 import com.erplist.order.service.OrderService;
@@ -52,8 +53,8 @@ public class OrderController {
     }
 
     @GetMapping
-    public Result<Page<Order>> queryOrders(OrderQueryDTO queryDTO) {
-        Page<Order> page = orderService.queryOrders(queryDTO);
+    public Result<Page<OrderListVO>> queryOrders(OrderQueryDTO queryDTO) {
+        Page<OrderListVO> page = orderService.queryOrders(queryDTO);
         return Result.success(page);
     }
 

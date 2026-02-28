@@ -9,6 +9,7 @@ import com.erplist.api.dto.SalesTimeSeriesItemDTO;
 import com.erplist.order.dto.OrderDTO;
 import com.erplist.order.dto.OrderDetailVO;
 import com.erplist.order.dto.OrderItemDTO;
+import com.erplist.order.dto.OrderListVO;
 import com.erplist.order.dto.OrderQueryDTO;
 import com.erplist.order.entity.Order;
 import com.erplist.order.entity.OrderItem;
@@ -26,9 +27,11 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * 订单服务实现（支持 zid/sid 多租户过滤）
@@ -130,7 +133,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public Page<Order> queryOrders(OrderQueryDTO queryDTO) {
+    public Page<OrderListVO> queryOrders(OrderQueryDTO queryDTO) {
         String zid = UserContext.getZid();
         if (!StringUtils.hasText(zid)) {
             throw new BusinessException("未登录或缺少租户信息，仅能查看当前公司下的订单");
@@ -164,7 +167,33 @@ public class OrderServiceImpl implements OrderService {
             wrapper.le(Order::getCreateTime, queryDTO.getCreateTimeEnd().atTime(LocalTime.MAX));
         }
         wrapper.orderByAsc(Order::getId);
-        return orderMapper.selectPage(page, wrapper);
+        Page<Order> orderPage = orderMapper.selectPage(page, wrapper);
+        List<Order> records = orderPage.getRecords();
+        if (records == null || records.isEmpty()) {
+            Page<OrderListVO> voPage = new Page<>(orderPage.getCurrent(), orderPage.getSize(), orderPage.getTotal());
+            voPage.setRecords(new ArrayList<>());
+            return voPage;
+        }
+        List<Long> orderIds = records.stream().map(Order::getId).collect(Collectors.toList());
+        LambdaQueryWrapper<OrderItem> itemWrapper = new LambdaQueryWrapper<>();
+        itemWrapper.in(OrderItem::getOrderId, orderIds).orderByAsc(OrderItem::getOrderId).orderByAsc(OrderItem::getId);
+        List<OrderItem> items = orderItemMapper.selectList(itemWrapper);
+        Map<Long, String> orderIdToFirstImage = new LinkedHashMap<>();
+        if (items != null) {
+            for (OrderItem item : items) {
+                orderIdToFirstImage.putIfAbsent(item.getOrderId(), item.getProductImage());
+            }
+        }
+        List<OrderListVO> voList = new ArrayList<>();
+        for (Order order : records) {
+            OrderListVO vo = new OrderListVO();
+            BeanUtils.copyProperties(order, vo);
+            vo.setFirstItemImageUrl(orderIdToFirstImage.get(order.getId()));
+            voList.add(vo);
+        }
+        Page<OrderListVO> voPage = new Page<>(orderPage.getCurrent(), orderPage.getSize(), orderPage.getTotal());
+        voPage.setRecords(voList);
+        return voPage;
     }
 
     @Override

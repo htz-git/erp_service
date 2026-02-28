@@ -12,9 +12,13 @@ import com.erplist.refund.service.RefundApplicationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * 退款申请服务实现（支持 zid/sid 多租户）
@@ -120,6 +124,30 @@ public class RefundApplicationServiceImpl implements RefundApplicationService {
         }
         wrapper.orderByDesc(RefundApplication::getCreateTime);
         return refundApplicationMapper.selectPage(page, wrapper);
+    }
+
+    /** 已退款状态：1=已通过/已退款 */
+    private static final int REFUND_STATUS_REFUNDED = 1;
+
+    @Override
+    public List<Long> getOrderIdsWithRefund(List<Long> orderIds) {
+        if (CollectionUtils.isEmpty(orderIds)) {
+            return Collections.emptyList();
+        }
+        String zid = UserContext.getZid();
+        if (!StringUtils.hasText(zid)) {
+            return Collections.emptyList();
+        }
+        LambdaQueryWrapper<RefundApplication> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(RefundApplication::getZid, zid)
+            .in(RefundApplication::getOrderId, orderIds)
+            .eq(RefundApplication::getRefundStatus, REFUND_STATUS_REFUNDED)
+            .select(RefundApplication::getOrderId);
+        List<RefundApplication> list = refundApplicationMapper.selectList(wrapper);
+        if (list == null || list.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return list.stream().map(RefundApplication::getOrderId).distinct().collect(Collectors.toList());
     }
 
     private void ensureSameZid(String entityZid) {

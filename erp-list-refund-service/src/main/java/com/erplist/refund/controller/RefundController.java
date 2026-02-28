@@ -31,6 +31,22 @@ public class RefundController {
         return Result.success(entity);
     }
 
+    @GetMapping("/reasons")
+    public Result<List<RefundReason>> listRefundReasons(@RequestParam(required = false) Integer status) {
+        List<RefundReason> list = refundReasonService.listRefundReasons(status);
+        return Result.success(list);
+    }
+
+    /**
+     * 批量查询存在已退款记录的订单 ID，供订单列表展示“退款”标签
+     * @param orderIds 订单 ID 列表，逗号分隔
+     */
+    @GetMapping("/order-ids-with-refund")
+    public Result<List<Long>> getOrderIdsWithRefund(@RequestParam("orderIds") List<Long> orderIds) {
+        List<Long> list = refundApplicationService.getOrderIdsWithRefund(orderIds);
+        return Result.success(list);
+    }
+
     @GetMapping("/{id}")
     public Result<RefundApplication> getRefundApplicationById(@PathVariable Long id) {
         RefundApplication entity = refundApplicationService.getRefundApplicationById(id);
@@ -53,11 +69,5 @@ public class RefundController {
     public Result<Page<RefundApplication>> queryRefundApplications(RefundApplicationQueryDTO queryDTO) {
         Page<RefundApplication> page = refundApplicationService.queryRefundApplications(queryDTO);
         return Result.success(page);
-    }
-
-    @GetMapping("/reasons")
-    public Result<List<RefundReason>> listRefundReasons(@RequestParam(required = false) Integer status) {
-        List<RefundReason> list = refundReasonService.listRefundReasons(status);
-        return Result.success(list);
     }
 }

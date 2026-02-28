@@ -5,6 +5,7 @@ import com.erplist.api.dto.CountryOrderCountDTO;
 import com.erplist.api.dto.SalesTimeSeriesItemDTO;
 import com.erplist.order.dto.OrderDTO;
 import com.erplist.order.dto.OrderDetailVO;
+import com.erplist.order.dto.OrderListVO;
 import com.erplist.order.dto.OrderQueryDTO;
 import com.erplist.order.entity.Order;
 
@@ -19,7 +20,7 @@ public interface OrderService {
     OrderDetailVO getOrderById(Long id);
     Order updateOrder(Long id, OrderDTO dto);
     void deleteOrder(Long id);
-    Page<Order> queryOrders(OrderQueryDTO queryDTO);
+    Page<OrderListVO> queryOrders(OrderQueryDTO queryDTO);
 
     /**
      * 获取销售时序数据（按日、按 SKU 聚合），供 LSTM 补货预测使用
