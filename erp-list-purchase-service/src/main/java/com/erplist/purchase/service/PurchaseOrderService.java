@@ -6,6 +6,7 @@ import com.erplist.purchase.dto.PurchaseOrderDTO;
 import com.erplist.purchase.dto.PurchaseOrderQueryDTO;
 import com.erplist.purchase.entity.PurchaseItem;
 import com.erplist.purchase.entity.PurchaseOrder;
+import com.erplist.purchase.entity.PurchaseStatusLog;
 
 import java.util.List;
 
@@ -34,4 +35,9 @@ public interface PurchaseOrderService {
     void deletePurchaseOrder(Long id);
 
     Page<PurchaseOrder> queryPurchaseOrders(PurchaseOrderQueryDTO queryDTO);
+
+    /**
+     * 按采购单ID查询状态变更时间线（用于详情页展示）
+     */
+    List<PurchaseStatusLog> getStatusLogsByPurchaseId(Long purchaseId);
 }

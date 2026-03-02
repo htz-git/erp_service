@@ -122,6 +122,12 @@ const routes = [
         name: 'OrderList',
         component: () => import('@/views/order/OrderList.vue'),
         meta: { title: '订单管理', icon: 'ShoppingBag' }
+      },
+      {
+        path: 'detail/:id',
+        name: 'OrderDetail',
+        component: () => import('@/views/order/OrderDetail.vue'),
+        meta: { title: '订单详情', icon: 'ShoppingBag' }
       }
     ]
   },
@@ -135,6 +141,12 @@ const routes = [
         name: 'ProductList',
         component: () => import('@/views/product/ProductList.vue'),
         meta: { title: '商品管理', icon: 'Goods' }
+      },
+      {
+        path: 'detail/:id',
+        name: 'ProductDetail',
+        component: () => import('@/views/product/ProductDetail.vue'),
+        meta: { title: '商品详情', icon: 'Goods' }
       }
     ]
   },
@@ -148,6 +160,12 @@ const routes = [
         name: 'PurchaseList',
         component: () => import('@/views/purchase/PurchaseList.vue'),
         meta: { title: '采购管理', icon: 'ShoppingCart' }
+      },
+      {
+        path: 'detail/:id',
+        name: 'PurchaseDetail',
+        component: () => import('@/views/purchase/PurchaseDetail.vue'),
+        meta: { title: '采购单详情', icon: 'ShoppingCart' }
       }
     ]
   },
@@ -161,6 +179,12 @@ const routes = [
         name: 'RefundList',
         component: () => import('@/views/refund/RefundList.vue'),
         meta: { title: '退款管理', icon: 'Money' }
+      },
+      {
+        path: 'detail/:id',
+        name: 'RefundDetail',
+        component: () => import('@/views/refund/RefundDetail.vue'),
+        meta: { title: '退款详情', icon: 'Money' }
       }
     ]
   },
@@ -174,6 +198,12 @@ const routes = [
         name: 'ReplenishmentList',
         component: () => import('@/views/replenishment/ReplenishmentList.vue'),
         meta: { title: '补货管理', icon: 'Box' }
+      },
+      {
+        path: 'detail/:id',
+        name: 'ReplenishmentDetail',
+        component: () => import('@/views/replenishment/ReplenishmentDetail.vue'),
+        meta: { title: '补货单详情', icon: 'Box' }
       }
     ]
   },
@@ -187,6 +217,12 @@ const routes = [
         name: 'InventoryList',
         component: () => import('@/views/inventory/InventoryList.vue'),
         meta: { title: '库存管理', icon: 'Box' }
+      },
+      {
+        path: 'detail/:id',
+        name: 'InventoryDetail',
+        component: () => import('@/views/inventory/InventoryDetail.vue'),
+        meta: { title: '库存详情', icon: 'Box' }
       }
     ]
   }

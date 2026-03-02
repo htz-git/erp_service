@@ -80,6 +80,20 @@ spring:
             - Path=/api/inventories/**
           filters:
             - StripPrefix=1
+        # 库存预警（补货服务）
+        - id: inventory-alert-service
+          uri: lb://erp-list-replenishment-service
+          predicates:
+            - Path=/api/inventory-alerts/**
+          filters:
+            - StripPrefix=1
+        # 补货计划（补货服务）
+        - id: replenishment-plan-service
+          uri: lb://erp-list-replenishment-service
+          predicates:
+            - Path=/api/replenishment-plans/**
+          filters:
+            - StripPrefix=1
       globalcors:
         cors-configurations:
           '[/**]':

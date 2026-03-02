@@ -93,6 +93,11 @@
           <el-table-column prop="refundReason" label="退款原因" min-width="120" show-overflow-tooltip />
           <el-table-column prop="applyTime" label="申请时间" width="170" />
           <el-table-column prop="createTime" label="创建时间" width="170" />
+          <el-table-column label="操作" width="100" fixed="right">
+            <template #default="{ row }">
+              <el-button type="primary" link @click="$router.push('/refund/detail/' + row.id)">查看详情</el-button>
+            </template>
+          </el-table-column>
         </el-table>
       </div>
 

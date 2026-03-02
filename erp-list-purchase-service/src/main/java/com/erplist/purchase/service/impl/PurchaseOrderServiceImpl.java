@@ -14,9 +14,11 @@ import com.erplist.api.dto.ProductImageDTO;
 import com.erplist.common.result.Result;
 import com.erplist.purchase.entity.PurchaseItem;
 import com.erplist.purchase.entity.PurchaseOrder;
+import com.erplist.purchase.entity.PurchaseStatusLog;
 import com.erplist.purchase.entity.Supplier;
 import com.erplist.purchase.mapper.PurchaseItemMapper;
 import com.erplist.purchase.mapper.PurchaseOrderMapper;
+import com.erplist.purchase.mapper.PurchaseStatusLogMapper;
 import com.erplist.purchase.mapper.SupplierMapper;
 import com.erplist.purchase.service.PurchaseOrderService;
 import lombok.RequiredArgsConstructor;
@@ -44,6 +46,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
     private final PurchaseOrderMapper purchaseOrderMapper;
     private final PurchaseItemMapper purchaseItemMapper;
+    private final PurchaseStatusLogMapper purchaseStatusLogMapper;
     private final SupplierMapper supplierMapper;
     private final OrderClient orderClient;
 
@@ -70,6 +73,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         }
         order.setPurchaseStatus(order.getPurchaseStatus() != null ? order.getPurchaseStatus() : 0);
         purchaseOrderMapper.insert(order);
+        insertStatusLog(order.getId(), order.getPurchaseNo(), null, order.getPurchaseStatus(), "创建采购单");
 
         if (dto.getItems() != null && !dto.getItems().isEmpty()) {
             for (PurchaseItemDTO itemDto : dto.getItems()) {
@@ -118,12 +122,17 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             throw new BusinessException("采购单不存在");
         }
         ensureSameZid(order.getZid());
+        Integer oldStatus = order.getPurchaseStatus();
         BeanUtils.copyProperties(dto, order, "id", "purchaseNo", "createTime");
         if (order.getSupplierName() == null && order.getSupplierId() != null) {
             Supplier supplier = supplierMapper.selectById(order.getSupplierId());
             if (supplier != null) {
                 order.setSupplierName(supplier.getSupplierName());
             }
+        }
+        Integer newStatus = order.getPurchaseStatus();
+        if (newStatus != null && !newStatus.equals(oldStatus)) {
+            insertStatusLog(order.getId(), order.getPurchaseNo(), oldStatus, newStatus, "更新采购单状态");
         }
         purchaseOrderMapper.updateById(order);
         return order;
@@ -275,11 +284,37 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         if (order.getPurchaseStatus() == null || order.getPurchaseStatus() != 0) {
             throw new BusinessException("仅待审核状态的采购单可审核通过");
         }
+        Integer oldStatus = order.getPurchaseStatus();
         order.setPurchaseStatus(1);
         order.setApproveTime(LocalDateTime.now());
         order.setApproverId(UserContext.getUserId());
         order.setApproverName(null);
         purchaseOrderMapper.updateById(order);
+        insertStatusLog(order.getId(), order.getPurchaseNo(), oldStatus, 1, "审核通过");
+    }
+
+    @Override
+    public List<PurchaseStatusLog> getStatusLogsByPurchaseId(Long purchaseId) {
+        PurchaseOrder order = purchaseOrderMapper.selectById(purchaseId);
+        if (order != null) {
+            ensureSameZid(order.getZid());
+        }
+        LambdaQueryWrapper<PurchaseStatusLog> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(PurchaseStatusLog::getPurchaseId, purchaseId).orderByAsc(PurchaseStatusLog::getCreateTime);
+        return purchaseStatusLogMapper.selectList(wrapper);
+    }
+
+    private void insertStatusLog(Long purchaseId, String purchaseNo, Integer oldStatus, Integer newStatus, String remark) {
+        PurchaseStatusLog log = new PurchaseStatusLog();
+        log.setPurchaseId(purchaseId);
+        log.setPurchaseNo(purchaseNo);
+        log.setOldStatus(oldStatus);
+        log.setNewStatus(newStatus);
+        log.setOperatorId(UserContext.getUserId());
+        log.setOperatorName(null);
+        log.setRemark(remark);
+        log.setCreateTime(LocalDateTime.now());
+        purchaseStatusLogMapper.insert(log);
     }
 
     private void ensureSameZid(String entityZid) {

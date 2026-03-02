@@ -68,8 +68,9 @@
             <template #default="{ row }">{{ row.minStock ?? 0 }}</template>
           </el-table-column>
           <el-table-column prop="updateTime" label="更新时间" width="170" />
-          <el-table-column label="操作" width="100" fixed="right">
+          <el-table-column label="操作" width="160" fixed="right">
             <template #default="{ row }">
+              <el-button type="primary" link size="small" @click="$router.push('/inventory/detail/' + row.id)">查看详情</el-button>
               <el-button type="primary" link size="small" @click="openDialog(row)">编辑</el-button>
             </template>
           </el-table-column>

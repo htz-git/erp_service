@@ -84,9 +84,10 @@
           <el-table-column prop="purchaserName" label="采购员" width="100" />
           <el-table-column prop="expectedArrivalTime" label="预计到货" min-width="170" />
           <el-table-column prop="createTime" label="创建时间" min-width="170" />
-          <el-table-column label="操作" width="90" fixed="right">
+          <el-table-column label="操作" width="160" fixed="right">
             <template #default="{ row }">
               <el-button type="primary" link @click="openDetail(row.id)">详情</el-button>
+              <el-button type="primary" link @click="$router.push('/purchase/detail/' + row.id)">查看详情</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -157,6 +158,24 @@
               <el-table-column prop="arrivalQuantity" label="到货数" width="70" align="right" />
             </el-table>
           </div>
+          <div v-if="(detail.statusLogs || []).length > 0" class="detail-status-timeline">
+            <div class="sub-title">状态时间线</div>
+            <el-timeline>
+              <el-timeline-item
+                v-for="log in detail.statusLogs"
+                :key="log.id"
+                :timestamp="log.createTime"
+                placement="top"
+              >
+                <p>
+                  {{ log.remark ?? '状态变更' }}
+                  <span v-if="log.oldStatus != null"> {{ purchaseStatusText(log.oldStatus) }} → </span>
+                  <span>{{ purchaseStatusText(log.newStatus) }}</span>
+                  <span v-if="log.operatorName">（{{ log.operatorName }}）</span>
+                </p>
+              </el-timeline-item>
+            </el-timeline>
+          </div>
           <div v-if="detail.order.purchaseStatus === 0" class="detail-actions">
             <el-button type="primary" :loading="approving" @click="approveOrder">审核通过</el-button>
           </div>
@@ -184,7 +203,7 @@ const shopOptionsLoading = ref(false)
 const detailVisible = ref(false)
 const detailLoading = ref(false)
 const approving = ref(false)
-const detail = ref({ order: null, items: [] })
+const detail = ref({ order: null, items: [], statusLogs: [] })
 
 const filterForm = ref({
   purchaseNo: '',
@@ -214,7 +233,7 @@ const detailStepActive = computed(() => {
 })
 
 async function openDetail(id) {
-  detail.value = { order: null, items: [] }
+  detail.value = { order: null, items: [], statusLogs: [] }
   detailVisible.value = true
   detailLoading.value = true
   try {
@@ -222,11 +241,12 @@ async function openDetail(id) {
     const data = res?.data ?? res
     detail.value = {
       order: data.order ?? data,
-      items: data.items ?? []
+      items: data.items ?? [],
+      statusLogs: data.statusLogs ?? []
     }
   } catch (e) {
     ElMessage.error(e.message || '加载详情失败')
-    detail.value = { order: null, items: [] }
+    detail.value = { order: null, items: [], statusLogs: [] }
   } finally {
     detailLoading.value = false
   }

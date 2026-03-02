@@ -28,5 +28,13 @@ export const orderApi = {
   /** 按国家统计订单数，供首页地图使用。params: zid, sid, startDate, endDate */
   getOrderStatsByCountry(params) {
     return request.get('/orders/stats-by-country', { params })
+  },
+
+  /** 根据订单项 ID 列表查询商品图，供退款详情等展示。orderItemIds 为数组，如 [1, 2] */
+  getOrderItemProductImages(orderItemIds) {
+    if (!orderItemIds?.length) return Promise.resolve({ data: [] })
+    return request.get('/orders/items/product-images', {
+      params: { orderItemIds: orderItemIds.join(',') }
+    })
   }
 }

@@ -70,8 +70,9 @@
           </el-table-column>
           <el-table-column prop="remark" label="备注" min-width="100" show-overflow-tooltip />
           <el-table-column prop="createTime" label="创建时间" width="170" />
-          <el-table-column label="操作" width="140" fixed="right">
+          <el-table-column label="操作" width="180" fixed="right">
             <template #default="{ row }">
+              <el-button type="primary" link size="small" @click="$router.push('/product/detail/' + row.id)">查看详情</el-button>
               <el-button type="primary" link size="small" @click="openDialog(row)">编辑</el-button>
               <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
             </template>

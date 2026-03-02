@@ -13,3 +13,18 @@ export function getReplenishmentSuggestions(params = {}) {
   if (params.sid != null && params.sid !== '') query.sid = params.sid
   return request.get('/replenishments/suggestions', { params: query })
 }
+
+/** 补货单详情（单头） */
+export function getReplenishmentById(id) {
+  return request.get(`/replenishments/${id}`)
+}
+
+/** 补货单明细 */
+export function getReplenishmentItems(id) {
+  return request.get(`/replenishments/${id}/items`)
+}
+
+/** 补货单列表分页 */
+export function queryReplenishmentOrders(params = {}) {
+  return request.get('/replenishments', { params })
+}

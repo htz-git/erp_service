@@ -7,6 +7,7 @@ import com.erplist.purchase.dto.PurchaseOrderDTO;
 import com.erplist.purchase.dto.PurchaseOrderQueryDTO;
 import com.erplist.purchase.entity.PurchaseItem;
 import com.erplist.purchase.entity.PurchaseOrder;
+import com.erplist.purchase.entity.PurchaseStatusLog;
 import com.erplist.purchase.service.PurchaseOrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
@@ -61,10 +62,18 @@ public class PurchaseOrderController {
         PurchaseOrder order = purchaseOrderService.getPurchaseOrderById(id);
         List<PurchaseItem> items = purchaseOrderService.getItemsByPurchaseId(id);
         purchaseOrderService.fillProductImageForItems(items);
+        List<PurchaseStatusLog> statusLogs = purchaseOrderService.getStatusLogsByPurchaseId(id);
         Map<String, Object> detail = new HashMap<>();
         detail.put("order", order);
         detail.put("items", items);
+        detail.put("statusLogs", statusLogs);
         return Result.success(detail);
+    }
+
+    @GetMapping("/{id}/status-logs")
+    public Result<List<PurchaseStatusLog>> getStatusLogs(@PathVariable Long id) {
+        List<PurchaseStatusLog> logs = purchaseOrderService.getStatusLogsByPurchaseId(id);
+        return Result.success(logs);
     }
 
     @PutMapping("/{id}")

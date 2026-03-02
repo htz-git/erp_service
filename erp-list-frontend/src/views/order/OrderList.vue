@@ -139,7 +139,7 @@
           <el-table-column prop="createTime" label="创建时间" min-width="170" />
           <el-table-column label="操作" width="80" fixed="right">
             <template #default="{ row }">
-              <el-button type="primary" link @click="openDetail(row.id)">详情</el-button>
+              <el-button type="primary" link @click="$router.push('/order/detail/' + row.id)">查看详情</el-button>
             </template>
           </el-table-column>
         </el-table>
