@@ -68,10 +68,12 @@
             <template #default="{ row }">{{ row.minStock ?? 0 }}</template>
           </el-table-column>
           <el-table-column prop="updateTime" label="更新时间" width="170" />
-          <el-table-column label="操作" width="160" fixed="right">
+          <el-table-column label="操作" width="260" fixed="right">
             <template #default="{ row }">
-              <el-button type="primary" link size="small" @click="$router.push('/inventory/detail/' + row.id)">查看详情</el-button>
+              <el-button type="primary" link size="small" @click="$router.push('/inventory/detail/' + row.id)">详情</el-button>
               <el-button type="primary" link size="small" @click="openDialog(row)">编辑</el-button>
+              <el-button type="success" link size="small" @click="openStockInDialog(row)">入库</el-button>
+              <el-button type="warning" link size="small" @click="openStockOutDialog(row)">出库</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -147,6 +149,41 @@
         <el-button type="primary" :loading="submitLoading" @click="handleSubmit">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- 入库 -->
+    <el-dialog v-model="stockInVisible" title="入库" width="400px" destroy-on-close @close="stockInRow = null">
+      <template v-if="stockInRow">
+        <p class="stock-dialog-desc">商品：{{ stockInRow.productName }}（{{ stockInRow.skuCode || '-' }}）</p>
+        <el-form ref="stockInFormRef" :model="stockInForm" :rules="stockInRules" label-width="90px">
+          <el-form-item label="入库数量" prop="quantity">
+            <el-input-number v-model="stockInForm.quantity" :min="1" :precision="0" controls-position="right" style="width: 100%" />
+          </el-form-item>
+          <el-form-item label="关联采购单">
+            <el-input v-model.number="stockInForm.purchaseId" placeholder="选填，采购单 ID" clearable style="width: 100%" />
+          </el-form-item>
+        </el-form>
+      </template>
+      <template #footer>
+        <el-button @click="stockInVisible = false">取消</el-button>
+        <el-button type="primary" :loading="stockInSubmitting" @click="submitStockIn">确定入库</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 出库 -->
+    <el-dialog v-model="stockOutVisible" title="出库" width="400px" destroy-on-close @close="stockOutRow = null">
+      <template v-if="stockOutRow">
+        <p class="stock-dialog-desc">商品：{{ stockOutRow.productName }}（{{ stockOutRow.skuCode || '-' }}），当前库存 {{ stockOutRow.currentStock ?? 0 }}</p>
+        <el-form ref="stockOutFormRef" :model="stockOutForm" :rules="stockOutRules" label-width="90px">
+          <el-form-item label="出库数量" prop="quantity">
+            <el-input-number v-model="stockOutForm.quantity" :min="1" :max="(stockOutRow && (stockOutRow.currentStock ?? 0)) || 99999" :precision="0" controls-position="right" style="width: 100%" />
+          </el-form-item>
+        </el-form>
+      </template>
+      <template #footer>
+        <el-button @click="stockOutVisible = false">取消</el-button>
+        <el-button type="primary" :loading="stockOutSubmitting" @click="submitStockOut">确定出库</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -155,7 +192,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Picture } from '@element-plus/icons-vue'
 import { useUserStore } from '@/store/user'
-import { getInventoryList, getInventoryById, createInventory, updateInventory } from '@/api/inventory'
+import { getInventoryList, getInventoryById, createInventory, updateInventory, stockIn, stockOut } from '@/api/inventory'
 import { productApi } from '@/api/product'
 import { sellerApi } from '@/api/seller'
 
@@ -171,6 +208,20 @@ const sellerOptionsLoading = ref(false)
 
 const filterForm = ref({ sid: null, skuCode: '', keyword: '' })
 const pagination = reactive({ pageNum: 1, pageSize: 10, total: 0 })
+
+const stockInVisible = ref(false)
+const stockInRow = ref(null)
+const stockInForm = ref({ quantity: 1, purchaseId: null })
+const stockInFormRef = ref(null)
+const stockInSubmitting = ref(false)
+const stockInRules = { quantity: [{ required: true, message: '请输入入库数量', trigger: 'blur' }, { type: 'number', min: 1, message: '至少 1', trigger: 'blur' }] }
+
+const stockOutVisible = ref(false)
+const stockOutRow = ref(null)
+const stockOutForm = ref({ quantity: 1 })
+const stockOutFormRef = ref(null)
+const stockOutSubmitting = ref(false)
+const stockOutRules = { quantity: [{ required: true, message: '请输入出库数量', trigger: 'blur' }, { type: 'number', min: 1, message: '至少 1', trigger: 'blur' }] }
 
 function sellerNameBySid(sid) {
   if (sid == null) return '-'
@@ -341,9 +392,64 @@ async function handleSubmit() {
     dialogVisible.value = false
     fetchList()
   } catch (e) {
-    ElMessage.error(e.message || '操作失败')
+    ElMessage.error(e?.response?.data?.message ?? e?.message ?? '操作失败')
   } finally {
     submitLoading.value = false
+  }
+}
+
+function openStockInDialog(row) {
+  stockInRow.value = row
+  stockInForm.value = { quantity: 1, purchaseId: null }
+  stockInVisible.value = true
+}
+
+function openStockOutDialog(row) {
+  stockOutRow.value = row
+  stockOutForm.value = { quantity: 1 }
+  stockOutVisible.value = true
+}
+
+async function submitStockIn() {
+  await stockInFormRef.value?.validate().catch(() => {})
+  const id = stockInRow.value?.id
+  if (!id) return
+  stockInSubmitting.value = true
+  try {
+    await stockIn(id, {
+      quantity: stockInForm.value.quantity,
+      purchaseId: stockInForm.value.purchaseId || undefined
+    })
+    ElMessage.success('入库成功')
+    stockInVisible.value = false
+    fetchList()
+  } catch (e) {
+    ElMessage.error(e?.response?.data?.message ?? e?.message ?? '入库失败')
+  } finally {
+    stockInSubmitting.value = false
+  }
+}
+
+async function submitStockOut() {
+  await stockOutFormRef.value?.validate().catch(() => {})
+  const id = stockOutRow.value?.id
+  if (!id) return
+  const q = stockOutForm.value.quantity
+  const cur = stockOutRow.value?.currentStock ?? 0
+  if (q > cur) {
+    ElMessage.warning('出库数量不能大于当前库存')
+    return
+  }
+  stockOutSubmitting.value = true
+  try {
+    await stockOut(id, { quantity: q })
+    ElMessage.success('出库成功')
+    stockOutVisible.value = false
+    fetchList()
+  } catch (e) {
+    ElMessage.error(e?.response?.data?.message ?? e?.message ?? '出库失败')
+  } finally {
+    stockOutSubmitting.value = false
   }
 }
 
@@ -362,4 +468,5 @@ onMounted(() => {
 .pagination-section { margin-top: 16px; display: flex; justify-content: flex-end; }
 .inventory-list-product-img { width: 48px; height: 48px; border-radius: 4px; object-fit: cover; }
 .inventory-list-img-placeholder { width: 48px; height: 48px; border-radius: 4px; background: var(--el-fill-color-light); display: flex; align-items: center; justify-content: center; color: var(--el-text-color-placeholder); }
+.stock-dialog-desc { margin-bottom: 16px; color: var(--el-text-color-regular); font-size: 14px; }
 </style>

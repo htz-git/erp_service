@@ -45,6 +45,7 @@
           <el-form-item>
             <el-button type="primary" :loading="loading" @click="handleSearch">查询</el-button>
             <el-button @click="handleReset">重置</el-button>
+            <el-button type="primary" @click="$router.push('/purchase/create')">新增采购单</el-button>
           </el-form-item>
         </el-form>
       </div>
@@ -84,10 +85,9 @@
           <el-table-column prop="purchaserName" label="采购员" width="100" />
           <el-table-column prop="expectedArrivalTime" label="预计到货" min-width="170" />
           <el-table-column prop="createTime" label="创建时间" min-width="170" />
-          <el-table-column label="操作" width="160" fixed="right">
+          <el-table-column label="操作" width="120" fixed="right">
             <template #default="{ row }">
-              <el-button type="primary" link @click="openDetail(row.id)">详情</el-button>
-              <el-button type="primary" link @click="$router.push('/purchase/detail/' + row.id)">查看详情</el-button>
+              <el-button type="primary" link @click="$router.push('/purchase/detail/' + row.id)">详情</el-button>
             </template>
           </el-table-column>
         </el-table>

@@ -28,3 +28,8 @@ export function getReplenishmentItems(id) {
 export function queryReplenishmentOrders(params = {}) {
   return request.get('/replenishments', { params })
 }
+
+/** 创建补货单，body: { sid?, totalAmount, remark?, items: [{ productId?, productName, skuId?, skuCode?, replenishmentQuantity, unitPrice? }] } */
+export function createReplenishmentOrder(data) {
+  return request.post('/replenishments', data)
+}

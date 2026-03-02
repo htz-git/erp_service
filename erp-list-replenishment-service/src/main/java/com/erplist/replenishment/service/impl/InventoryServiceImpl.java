@@ -143,6 +143,33 @@ public class InventoryServiceImpl implements InventoryService {
         return result;
     }
 
+    @Override
+    public Inventory stockIn(Long id, Integer quantity, Long purchaseId) {
+        if (quantity == null || quantity <= 0) {
+            throw new BusinessException("入库数量必须大于 0");
+        }
+        Inventory inv = getById(id);
+        int after = (inv.getCurrentStock() != null ? inv.getCurrentStock() : 0) + quantity;
+        inv.setCurrentStock(after);
+        inventoryMapper.updateById(inv);
+        return inv;
+    }
+
+    @Override
+    public Inventory stockOut(Long id, Integer quantity) {
+        if (quantity == null || quantity <= 0) {
+            throw new BusinessException("出库数量必须大于 0");
+        }
+        Inventory inv = getById(id);
+        int current = inv.getCurrentStock() != null ? inv.getCurrentStock() : 0;
+        if (current < quantity) {
+            throw new BusinessException("当前库存不足，无法出库");
+        }
+        inv.setCurrentStock(current - quantity);
+        inventoryMapper.updateById(inv);
+        return inv;
+    }
+
     private static void ensureSameZid(String entityZid) {
         String currentZid = UserContext.getZid();
         if (!StringUtils.hasText(currentZid) || !currentZid.equals(entityZid)) {

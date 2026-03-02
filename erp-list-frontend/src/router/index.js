@@ -162,6 +162,12 @@ const routes = [
         meta: { title: '采购管理', icon: 'ShoppingCart' }
       },
       {
+        path: 'create',
+        name: 'PurchaseCreate',
+        component: () => import('@/views/purchase/PurchaseCreate.vue'),
+        meta: { title: '新增采购单', icon: 'ShoppingCart' }
+      },
+      {
         path: 'detail/:id',
         name: 'PurchaseDetail',
         component: () => import('@/views/purchase/PurchaseDetail.vue'),
@@ -198,6 +204,12 @@ const routes = [
         name: 'ReplenishmentList',
         component: () => import('@/views/replenishment/ReplenishmentList.vue'),
         meta: { title: '补货管理', icon: 'Box' }
+      },
+      {
+        path: 'create',
+        name: 'ReplenishmentCreate',
+        component: () => import('@/views/replenishment/ReplenishmentCreate.vue'),
+        meta: { title: '新增补货单', icon: 'Box' }
       },
       {
         path: 'detail/:id',

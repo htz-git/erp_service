@@ -43,4 +43,21 @@ public class InventoryController {
         Inventory entity = inventoryService.update(id, dto);
         return Result.success(entity);
     }
+
+    /** 入库：增加库存，body 可选 { "quantity": 10, "purchaseId": 123 } */
+    @PostMapping("/{id}/stock-in")
+    public Result<Inventory> stockIn(@PathVariable Long id, @RequestBody java.util.Map<String, Object> body) {
+        Integer quantity = body.get("quantity") != null ? ((Number) body.get("quantity")).intValue() : null;
+        Long purchaseId = body.get("purchaseId") != null ? ((Number) body.get("purchaseId")).longValue() : null;
+        Inventory entity = inventoryService.stockIn(id, quantity, purchaseId);
+        return Result.success(entity);
+    }
+
+    /** 出库：减少库存，body { "quantity": 5 } */
+    @PostMapping("/{id}/stock-out")
+    public Result<Inventory> stockOut(@PathVariable Long id, @RequestBody java.util.Map<String, Object> body) {
+        Integer quantity = body.get("quantity") != null ? ((Number) body.get("quantity")).intValue() : null;
+        Inventory entity = inventoryService.stockOut(id, quantity);
+        return Result.success(entity);
+    }
 }

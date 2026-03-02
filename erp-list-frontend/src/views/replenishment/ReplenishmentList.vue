@@ -4,6 +4,7 @@
       <template #header>
         <div class="card-header">
           <span>补货管理</span>
+          <el-button type="primary" @click="$router.push('/replenishment/create')">新增补货单</el-button>
         </div>
       </template>
 
@@ -361,7 +362,7 @@ onMounted(() => {
 
 <style scoped>
 .replenishment-page { padding: 20px; }
-.card-header { font-size: 18px; font-weight: bold; }
+.card-header { display: flex; align-items: center; justify-content: space-between; font-size: 18px; font-weight: bold; }
 .filter-section { margin-bottom: 16px; }
 .filter-form { margin: 0; }
 .table-section { margin-top: 12px; }

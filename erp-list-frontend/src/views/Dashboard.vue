@@ -42,6 +42,35 @@
       </el-button>
     </div>
 
+    <!-- 订单趋势 -->
+    <div class="dashboard-section">
+      <el-card class="section-card" shadow="hover">
+        <template #header>
+          <div class="card-header">
+            <span>订单趋势</span>
+            <div class="card-header-right">
+              <span class="range-label">时间范围</span>
+              <el-date-picker
+                v-model="trendDateRange"
+                type="daterange"
+                range-separator="至"
+                start-placeholder="开始日期"
+                end-placeholder="结束日期"
+                value-format="YYYY-MM-DD"
+                size="default"
+                class="trend-date-picker"
+              />
+              <el-button type="primary" size="default" :loading="trendLoading" :disabled="!trendDateRange || trendDateRange.length !== 2" @click="loadTrendData">查询</el-button>
+            </div>
+          </div>
+        </template>
+        <div class="trend-summary">
+          选定时间范围内订单数：<strong class="trend-total">{{ trendLoading ? '加载中...' : rangeOrderTotal }}</strong>
+        </div>
+        <div ref="trendRef" class="trend-chart"></div>
+      </el-card>
+    </div>
+
     <!-- 订单分布 -->
     <div class="dashboard-section">
       <el-card class="section-card" shadow="hover">
@@ -124,6 +153,18 @@ const orderDateRange = ref('')
 const orderType = ref('sale')
 const orderPeriod = ref('28')
 
+function getDefaultTrendRange() {
+  const end = new Date()
+  const start = new Date()
+  start.setDate(start.getDate() - 6)
+  return [start.toISOString().slice(0, 10), end.toISOString().slice(0, 10)]
+}
+const trendDateRange = ref(getDefaultTrendRange())
+const rangeOrderTotal = ref('-')
+const trendRef = ref(null)
+let trendChart = null
+const trendLoading = ref(false)
+
 // 国家代码 -> [经度, 纬度]，与后端 COUNTRY_NAME_MAP 对应
 const COUNTRY_COORDS = {
   US: [-95.7129, 37.0902],
@@ -161,6 +202,86 @@ function getDateRangeByPeriod(days) {
     startDate: start.toISOString().slice(0, 10),
     endDate: end.toISOString().slice(0, 10)
   }
+}
+
+async function fetchRangeTotal(startDate, endDate) {
+  const user = currentUser.value
+  const params = { pageNum: 1, pageSize: 1, createTimeStart: startDate, createTimeEnd: endDate }
+  if (user?.zid) params.zid = user.zid
+  if (user?.sid != null) params.sid = user.sid
+  try {
+    const res = await orderApi.queryOrders(params)
+    rangeOrderTotal.value = res?.data?.total ?? 0
+  } catch {
+    rangeOrderTotal.value = '-'
+  }
+}
+
+async function fetchTrendData() {
+  const range = trendDateRange.value
+  if (!range || range.length !== 2) {
+    setTrendOption([], [])
+    return
+  }
+  const [startDate, endDate] = range
+  const user = currentUser.value
+  const params = { pageNum: 1, pageSize: 1 }
+  if (user?.zid) params.zid = user.zid
+  if (user?.sid != null) params.sid = user.sid
+  const labels = []
+  const values = []
+  const start = new Date(startDate)
+  const end = new Date(endDate)
+  trendLoading.value = true
+  try {
+    await fetchRangeTotal(startDate, endDate)
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const dayStr = d.toISOString().slice(0, 10)
+      labels.push(dayStr.slice(5))
+      const res = await orderApi.queryOrders({
+        ...params,
+        createTimeStart: dayStr,
+        createTimeEnd: dayStr
+      })
+      values.push(res?.data?.total ?? 0)
+    }
+    setTrendOption(labels, values)
+  } catch {
+    rangeOrderTotal.value = '-'
+    setTrendOption([], [])
+  } finally {
+    trendLoading.value = false
+  }
+}
+
+async function loadTrendData() {
+  if (!trendDateRange.value || trendDateRange.value.length !== 2) return
+  await fetchTrendData()
+}
+
+function setTrendOption(labels, values) {
+  if (!trendChart) return
+  trendChart.setOption({
+    xAxis: { type: 'category', data: labels, boundaryGap: false },
+    yAxis: { type: 'value', minInterval: 1 },
+    series: [{ name: '订单数', type: 'line', data: values, smooth: true, areaStyle: { opacity: 0.2 } }],
+    tooltip: { trigger: 'axis' },
+    grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true }
+  })
+}
+
+function initTrendChart() {
+  if (!trendRef.value) return
+  trendChart = echarts.init(trendRef.value)
+  trendChart.setOption({
+    xAxis: { type: 'category', boundaryGap: false },
+    yAxis: { type: 'value', minInterval: 1 },
+    series: [{ name: '订单数', type: 'line', smooth: true, areaStyle: { opacity: 0.2 } }],
+    tooltip: { trigger: 'axis' },
+    grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true }
+  })
+  setTrendOption([], [])
+  window.addEventListener('resize', () => trendChart?.resize())
 }
 
 async function fetchMapData() {
@@ -265,6 +386,8 @@ async function loadMapData() {
 }
 
 onMounted(async () => {
+  initTrendChart()
+  await loadTrendData()
   initOrderMap()
   await loadMapData()
 })
@@ -275,6 +398,8 @@ onUnmounted(() => {
   }
   mapChart?.dispose()
   mapChart = null
+  trendChart?.dispose()
+  trendChart = null
 })
 
 watch([orderType, orderPeriod], () => {
@@ -310,6 +435,13 @@ watch([orderType, orderPeriod], () => {
 .section-card :deep(.el-card__body) {
   padding: 20px;
 }
+
+.card-header-right { flex-wrap: wrap; }
+.trend-date-picker { margin-right: 8px; min-width: 220px; }
+.range-label { margin-right: 8px; color: var(--el-text-color-regular); font-size: 14px; white-space: nowrap; }
+.trend-summary { margin-bottom: 16px; font-size: 15px; color: var(--el-text-color-regular); }
+.trend-total { color: var(--el-color-primary); font-size: 18px; margin-left: 4px; }
+.trend-chart { height: 280px; width: 100%; }
 
 .card-header {
   display: flex;

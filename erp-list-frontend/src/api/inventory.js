@@ -33,3 +33,17 @@ export function createInventory(data) {
 export function updateInventory(id, data) {
   return request.put(`/inventories/${id}`, data)
 }
+
+/**
+ * 入库：增加库存。data: { quantity: number, purchaseId?: number }（可选关联采购单）
+ */
+export function stockIn(id, data) {
+  return request.post(`/inventories/${id}/stock-in`, data)
+}
+
+/**
+ * 出库：减少库存。data: { quantity: number }
+ */
+export function stockOut(id, data) {
+  return request.post(`/inventories/${id}/stock-out`, data)
+}

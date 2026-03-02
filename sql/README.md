@@ -94,4 +94,6 @@ mysql -u root -p < sql/00_执行所有SQL脚本.sql
 3. **字符集**：所有数据库和表都使用 utf8mb4 字符集
 4. **初始数据**：部分脚本包含初始数据（如支付方式、退款原因），可根据需要修改
 
+### 增量/可选数据脚本
+- **erp_list_replenishment_inventory_alert_plan_init.sql**：库存预警与补货计划表示例数据（可选）。依赖建表汇总及 inventory 表已有数据；可为 inventory_alert、replenishment_plan 生成演示数据。正式环境可由定时任务或业务逻辑生成。
 

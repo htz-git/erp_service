@@ -17,4 +17,14 @@ public interface InventoryService {
     Inventory getById(Long id);
 
     Page<Inventory> query(InventoryQueryDTO queryDTO);
+
+    /**
+     * 入库：增加当前库存数量（可选关联采购单ID，用于到货入库）
+     */
+    Inventory stockIn(Long id, Integer quantity, Long purchaseId);
+
+    /**
+     * 出库：减少当前库存数量
+     */
+    Inventory stockOut(Long id, Integer quantity);
 }
