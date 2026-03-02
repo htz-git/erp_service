@@ -6,6 +6,8 @@ import com.erplist.common.exception.BusinessException;
 import com.erplist.common.utils.UserContext;
 import com.erplist.api.dto.CountryOrderCountDTO;
 import com.erplist.api.dto.OrderItemImageDTO;
+import com.erplist.api.dto.ProductImageDTO;
+import com.erplist.api.dto.ProductImageDTO;
 import com.erplist.api.dto.SalesTimeSeriesItemDTO;
 import com.erplist.order.dto.OrderDTO;
 import com.erplist.order.dto.OrderDetailVO;
@@ -254,6 +256,30 @@ public class OrderServiceImpl implements OrderService {
         return items.stream()
             .map(item -> new OrderItemImageDTO(item.getId(), item.getProductImage()))
             .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<ProductImageDTO> getProductImagesByProductIds(List<Long> productIds) {
+        if (productIds == null || productIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        LambdaQueryWrapper<OrderItem> wrapper = new LambdaQueryWrapper<>();
+        wrapper.in(OrderItem::getProductId, productIds)
+                .select(OrderItem::getProductId, OrderItem::getProductImage)
+                .last("LIMIT 10000");
+        List<OrderItem> items = orderItemMapper.selectList(wrapper);
+        if (items == null || items.isEmpty()) {
+            return Collections.emptyList();
+        }
+        Map<Long, String> map = new LinkedHashMap<>();
+        for (OrderItem item : items) {
+            if (item.getProductId() != null && !map.containsKey(item.getProductId()) && StringUtils.hasText(item.getProductImage())) {
+                map.put(item.getProductId(), item.getProductImage());
+            }
+        }
+        return map.entrySet().stream()
+                .map(e -> new ProductImageDTO(e.getKey(), e.getValue()))
+                .collect(Collectors.toList());
     }
 
     private void ensureSameZid(String entityZid) {

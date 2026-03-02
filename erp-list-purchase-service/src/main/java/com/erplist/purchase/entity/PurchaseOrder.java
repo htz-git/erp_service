@@ -1,6 +1,7 @@
 package com.erplist.purchase.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
@@ -36,4 +37,8 @@ public class PurchaseOrder {
     private LocalDateTime updateTime;
     @TableLogic
     private Integer deleted;
+
+    /** 列表展示用：首条采购明细的商品图（非表字段） */
+    @TableField(exist = false)
+    private String firstItemImageUrl;
 }

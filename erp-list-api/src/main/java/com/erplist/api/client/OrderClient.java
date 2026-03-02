@@ -1,6 +1,7 @@
 package com.erplist.api.client;
 
 import com.erplist.api.dto.OrderItemImageDTO;
+import com.erplist.api.dto.ProductImageDTO;
 import com.erplist.api.dto.SalesTimeSeriesItemDTO;
 import com.erplist.common.result.Result;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -47,4 +48,10 @@ public interface OrderClient {
      */
     @GetMapping("/orders/items/product-images")
     Result<List<OrderItemImageDTO>> getOrderItemProductImages(@RequestParam("orderItemIds") List<Long> orderItemIds);
+
+    /**
+     * 根据商品 ID 列表查询商品图（取订单项中该商品的任一张图），供库存、采购单列表展示
+     */
+    @GetMapping("/orders/items/product-images-by-product-ids")
+    Result<List<ProductImageDTO>> getProductImagesByProductIds(@RequestParam("productIds") List<Long> productIds);
 }

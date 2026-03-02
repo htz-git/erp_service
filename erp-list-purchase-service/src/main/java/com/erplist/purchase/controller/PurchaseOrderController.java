@@ -60,6 +60,7 @@ public class PurchaseOrderController {
     public Result<Map<String, Object>> getPurchaseOrderDetail(@PathVariable Long id) {
         PurchaseOrder order = purchaseOrderService.getPurchaseOrderById(id);
         List<PurchaseItem> items = purchaseOrderService.getItemsByPurchaseId(id);
+        purchaseOrderService.fillProductImageForItems(items);
         Map<String, Object> detail = new HashMap<>();
         detail.put("order", order);
         detail.put("items", items);

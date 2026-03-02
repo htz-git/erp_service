@@ -103,4 +103,12 @@ public class OrderController {
         List<OrderItemImageDTO> list = orderService.getOrderItemProductImages(orderItemIds);
         return Result.success(list);
     }
+
+    /**
+     * 根据商品 ID 列表查询商品图，供库存、采购单列表展示
+     */
+    @GetMapping("/items/product-images-by-product-ids")
+    public Result<List<com.erplist.api.dto.ProductImageDTO>> getProductImagesByProductIds(@RequestParam("productIds") List<Long> productIds) {
+        return Result.success(orderService.getProductImagesByProductIds(productIds));
+    }
 }

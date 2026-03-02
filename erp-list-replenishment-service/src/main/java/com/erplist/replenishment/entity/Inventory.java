@@ -1,6 +1,7 @@
 package com.erplist.replenishment.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
@@ -25,4 +26,8 @@ public class Inventory {
     private Integer minStock;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
+
+    /** 商品图（由列表查询时通过订单服务填充，非表字段） */
+    @TableField(exist = false)
+    private String productImageUrl;
 }

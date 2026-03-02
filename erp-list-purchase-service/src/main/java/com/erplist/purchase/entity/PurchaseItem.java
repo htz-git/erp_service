@@ -1,6 +1,7 @@
 package com.erplist.purchase.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
@@ -30,4 +31,8 @@ public class PurchaseItem {
     private BigDecimal totalPrice;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
+
+    /** 商品图（详情展示时通过订单服务填充，非表字段） */
+    @TableField(exist = false)
+    private String productImageUrl;
 }

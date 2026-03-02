@@ -9,6 +9,9 @@ import com.erplist.purchase.dto.PurchaseItemDTO;
 import com.erplist.purchase.dto.PurchaseOrderDTO;
 import com.erplist.purchase.dto.PurchaseOrderQueryDTO;
 import com.erplist.purchase.dto.SuggestionItemDTO;
+import com.erplist.api.client.OrderClient;
+import com.erplist.api.dto.ProductImageDTO;
+import com.erplist.common.result.Result;
 import com.erplist.purchase.entity.PurchaseItem;
 import com.erplist.purchase.entity.PurchaseOrder;
 import com.erplist.purchase.entity.Supplier;
@@ -25,7 +28,10 @@ import org.springframework.util.StringUtils;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -39,6 +45,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     private final PurchaseOrderMapper purchaseOrderMapper;
     private final PurchaseItemMapper purchaseItemMapper;
     private final SupplierMapper supplierMapper;
+    private final OrderClient orderClient;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -158,7 +165,63 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             wrapper.eq(PurchaseOrder::getPurchaserId, queryDTO.getPurchaserId());
         }
         wrapper.orderByDesc(PurchaseOrder::getCreateTime);
-        return purchaseOrderMapper.selectPage(page, wrapper);
+        Page<PurchaseOrder> result = purchaseOrderMapper.selectPage(page, wrapper);
+        if (result.getRecords() != null && !result.getRecords().isEmpty()) {
+            List<Long> purchaseIds = result.getRecords().stream().map(PurchaseOrder::getId).collect(Collectors.toList());
+            LambdaQueryWrapper<PurchaseItem> itemWrapper = new LambdaQueryWrapper<>();
+            itemWrapper.in(PurchaseItem::getPurchaseId, purchaseIds).orderByAsc(PurchaseItem::getPurchaseId).orderByAsc(PurchaseItem::getId);
+            List<PurchaseItem> allItems = purchaseItemMapper.selectList(itemWrapper);
+            Map<Long, Long> purchaseIdToProductId = new LinkedHashMap<>();
+            if (allItems != null) {
+                for (PurchaseItem i : allItems) {
+                    purchaseIdToProductId.putIfAbsent(i.getPurchaseId(), i.getProductId());
+                }
+            }
+            List<Long> productIds = purchaseIdToProductId.values().stream().filter(Objects::nonNull).distinct().collect(Collectors.toList());
+            if (!productIds.isEmpty()) {
+                Result<List<ProductImageDTO>> res = orderClient.getProductImagesByProductIds(productIds);
+                Map<Long, String> productIdToImage = new LinkedHashMap<>();
+                if (res != null && res.getData() != null) {
+                    for (ProductImageDTO dto : res.getData()) {
+                        if (dto.getProductId() != null && dto.getProductImage() != null) {
+                            productIdToImage.put(dto.getProductId(), dto.getProductImage());
+                        }
+                    }
+                }
+                for (PurchaseOrder o : result.getRecords()) {
+                    Long pid = purchaseIdToProductId.get(o.getId());
+                    if (pid != null) {
+                        o.setFirstItemImageUrl(productIdToImage.get(pid));
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    @Override
+    public void fillProductImageForItems(List<PurchaseItem> items) {
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+        List<Long> productIds = items.stream().map(PurchaseItem::getProductId).filter(Objects::nonNull).distinct().collect(Collectors.toList());
+        if (productIds.isEmpty()) {
+            return;
+        }
+        Result<List<ProductImageDTO>> res = orderClient.getProductImagesByProductIds(productIds);
+        Map<Long, String> productIdToImage = new LinkedHashMap<>();
+        if (res != null && res.getData() != null) {
+            for (ProductImageDTO dto : res.getData()) {
+                if (dto.getProductId() != null && dto.getProductImage() != null) {
+                    productIdToImage.put(dto.getProductId(), dto.getProductImage());
+                }
+            }
+        }
+        for (PurchaseItem item : items) {
+            if (item.getProductId() != null) {
+                item.setProductImageUrl(productIdToImage.get(item.getProductId()));
+            }
+        }
     }
 
     @Override

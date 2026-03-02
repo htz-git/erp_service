@@ -4,6 +4,9 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.erplist.common.exception.BusinessException;
 import com.erplist.common.utils.UserContext;
+import com.erplist.api.client.OrderClient;
+import com.erplist.api.dto.ProductImageDTO;
+import com.erplist.common.result.Result;
 import com.erplist.replenishment.dto.InventoryDTO;
 import com.erplist.replenishment.dto.InventoryQueryDTO;
 import com.erplist.replenishment.entity.Inventory;
@@ -14,6 +17,12 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
+
 /**
  * 库存服务实现（按公司 zid 隔离）
  */
@@ -22,6 +31,7 @@ import org.springframework.util.StringUtils;
 public class InventoryServiceImpl implements InventoryService {
 
     private final InventoryMapper inventoryMapper;
+    private final OrderClient orderClient;
 
     @Override
     public Inventory create(InventoryDTO dto) {
@@ -106,7 +116,31 @@ public class InventoryServiceImpl implements InventoryService {
                     .or().like(Inventory::getProductName, queryDTO.getKeyword()));
         }
         wrapper.orderByDesc(Inventory::getUpdateTime);
-        return inventoryMapper.selectPage(page, wrapper);
+        Page<Inventory> result = inventoryMapper.selectPage(page, wrapper);
+        if (result.getRecords() != null && !result.getRecords().isEmpty()) {
+            List<Long> productIds = result.getRecords().stream()
+                    .map(Inventory::getProductId)
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .collect(Collectors.toList());
+            if (!productIds.isEmpty()) {
+                Result<List<ProductImageDTO>> res = orderClient.getProductImagesByProductIds(productIds);
+                Map<Long, String> imageMap = new HashMap<>();
+                if (res != null && res.getData() != null) {
+                    for (ProductImageDTO dto : res.getData()) {
+                        if (dto.getProductId() != null && dto.getProductImage() != null) {
+                            imageMap.put(dto.getProductId(), dto.getProductImage());
+                        }
+                    }
+                }
+                for (Inventory inv : result.getRecords()) {
+                    if (inv.getProductId() != null) {
+                        inv.setProductImageUrl(imageMap.get(inv.getProductId()));
+                    }
+                }
+            }
+        }
+        return result;
     }
 
     private static void ensureSameZid(String entityZid) {

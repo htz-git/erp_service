@@ -59,6 +59,20 @@
           style="width: 100%"
         >
           <el-table-column prop="id" label="ID" width="80" />
+          <el-table-column label="商品图" width="80" align="center">
+            <template #default="{ row }">
+              <el-image
+                v-if="row.firstItemImageUrl"
+                :src="row.firstItemImageUrl"
+                fit="cover"
+                class="purchase-list-product-img"
+                :preview-src-list="[row.firstItemImageUrl]"
+              />
+              <div v-else class="purchase-list-img-placeholder">
+                <el-icon :size="20"><Picture /></el-icon>
+              </div>
+            </template>
+          </el-table-column>
           <el-table-column prop="purchaseNo" label="采购单号" min-width="160" show-overflow-tooltip />
           <el-table-column prop="supplierName" label="供应商" min-width="120" show-overflow-tooltip />
           <el-table-column prop="totalAmount" label="总金额" width="100" align="right">
@@ -121,6 +135,20 @@
           <div class="detail-items">
             <div class="sub-title">采购商品</div>
             <el-table :data="detail.items || []" border size="small" max-height="280">
+              <el-table-column label="商品图" width="64" align="center">
+                <template #default="{ row }">
+                  <el-image
+                    v-if="row.productImageUrl"
+                    :src="row.productImageUrl"
+                    fit="cover"
+                    class="purchase-detail-item-img"
+                    :preview-src-list="[row.productImageUrl]"
+                  />
+                  <div v-else class="purchase-detail-img-placeholder">
+                    <el-icon :size="16"><Picture /></el-icon>
+                  </div>
+                </template>
+              </el-table-column>
               <el-table-column prop="productName" label="商品名称" min-width="140" show-overflow-tooltip />
               <el-table-column prop="skuCode" label="SKU" width="100" />
               <el-table-column prop="purchasePrice" label="单价" width="90" align="right" />
@@ -140,6 +168,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
+import { Picture } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/store/user'
 import { purchaseApi } from '@/api/purchase'
@@ -310,4 +339,9 @@ onMounted(() => {
 .sub-title { font-weight: bold; margin-bottom: 8px; }
 .detail-items { margin-bottom: 16px; }
 .detail-actions { margin-top: 16px; }
+
+.purchase-list-product-img { width: 48px; height: 48px; border-radius: 4px; object-fit: cover; }
+.purchase-list-img-placeholder { width: 48px; height: 48px; border-radius: 4px; background: var(--el-fill-color-light); display: flex; align-items: center; justify-content: center; color: var(--el-text-color-placeholder); }
+.purchase-detail-item-img { width: 40px; height: 40px; border-radius: 4px; object-fit: cover; }
+.purchase-detail-img-placeholder { width: 40px; height: 40px; border-radius: 4px; background: var(--el-fill-color-light); display: flex; align-items: center; justify-content: center; color: var(--el-text-color-placeholder); }
 </style>

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.erplist.purchase.dto.CreatePurchaseFromSuggestionsRequest;
 import com.erplist.purchase.dto.PurchaseOrderDTO;
 import com.erplist.purchase.dto.PurchaseOrderQueryDTO;
+import com.erplist.purchase.entity.PurchaseItem;
 import com.erplist.purchase.entity.PurchaseOrder;
 
 import java.util.List;
@@ -21,7 +22,12 @@ public interface PurchaseOrderService {
 
     PurchaseOrder getPurchaseOrderById(Long id);
 
-    List<com.erplist.purchase.entity.PurchaseItem> getItemsByPurchaseId(Long purchaseId);
+    List<PurchaseItem> getItemsByPurchaseId(Long purchaseId);
+
+    /**
+     * 为采购明细列表填充商品图（调用订单服务按 productId 拉取）
+     */
+    void fillProductImageForItems(List<PurchaseItem> items);
 
     PurchaseOrder updatePurchaseOrder(Long id, PurchaseOrderDTO dto);
 

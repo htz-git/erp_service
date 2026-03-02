@@ -40,6 +40,20 @@
 
       <div class="table-section">
         <el-table v-loading="loading" :data="list" stripe border style="width: 100%">
+          <el-table-column label="商品图" width="80" align="center">
+            <template #default="{ row }">
+              <el-image
+                v-if="row.productImageUrl"
+                :src="row.productImageUrl"
+                fit="cover"
+                class="inventory-list-product-img"
+                :preview-src-list="[row.productImageUrl]"
+              />
+              <div v-else class="inventory-list-img-placeholder">
+                <el-icon :size="20"><Picture /></el-icon>
+              </div>
+            </template>
+          </el-table-column>
           <el-table-column label="所属店铺" width="120">
             <template #default="{ row }">
               {{ sellerNameBySid(row.sid) }}
@@ -138,6 +152,7 @@
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Picture } from '@element-plus/icons-vue'
 import { useUserStore } from '@/store/user'
 import { getInventoryList, getInventoryById, createInventory, updateInventory } from '@/api/inventory'
 import { productApi } from '@/api/product'
@@ -344,4 +359,6 @@ onMounted(() => {
 .filter-form { margin: 0; }
 .table-section { margin-top: 12px; }
 .pagination-section { margin-top: 16px; display: flex; justify-content: flex-end; }
+.inventory-list-product-img { width: 48px; height: 48px; border-radius: 4px; object-fit: cover; }
+.inventory-list-img-placeholder { width: 48px; height: 48px; border-radius: 4px; background: var(--el-fill-color-light); display: flex; align-items: center; justify-content: center; color: var(--el-text-color-placeholder); }
 </style>

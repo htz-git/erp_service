@@ -8,6 +8,7 @@ import com.erplist.order.dto.OrderDetailVO;
 import com.erplist.order.dto.OrderListVO;
 import com.erplist.order.dto.OrderQueryDTO;
 import com.erplist.api.dto.OrderItemImageDTO;
+import com.erplist.api.dto.ProductImageDTO;
 import com.erplist.order.entity.Order;
 
 import java.time.LocalDate;
@@ -42,4 +43,9 @@ public interface OrderService {
      * 根据订单项 ID 列表查询商品图，供退款列表展示
      */
     List<OrderItemImageDTO> getOrderItemProductImages(List<Long> orderItemIds);
+
+    /**
+     * 根据商品 ID 列表查询商品图（取订单项中该商品的任一张图），供库存、采购单展示
+     */
+    List<ProductImageDTO> getProductImagesByProductIds(List<Long> productIds);
 }
