@@ -11,7 +11,9 @@ import com.erplist.user.service.AuditLogService;
 import com.erplist.user.service.CompanyService;
 import com.erplist.user.service.UserService;
 import com.erplist.user.util.AdminHelper;
+import com.erplist.api.client.SellerClient;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,6 +23,7 @@ import java.util.List;
 /**
  * 管理后台接口（仅平台管理员可访问，需虚拟 zid + admin:access）
  */
+@Slf4j
 @RestController
 @RequestMapping("/admin")
 @RequiredArgsConstructor
@@ -30,6 +33,7 @@ public class AdminController {
     private final CompanyService companyService;
     private final UserService userService;
     private final AuditLogService auditLogService;
+    private final SellerClient sellerClient;
 
     /** 公司管理 */
 
@@ -111,7 +115,16 @@ public class AdminController {
             vo.setZid(c.getId());
             vo.setCompanyName(c.getCompanyName());
             vo.setUserCount(userService.countUsersByZid(c.getId()));
-            vo.setSellerCount(0L); // 需调 seller 服务按 zid 统计店铺数时可在此处 Feign 调用
+            long sellerCount = 0L;
+            try {
+                Result<Long> res = sellerClient.countByZid(c.getId());
+                if (res != null && res.getData() != null) {
+                    sellerCount = res.getData();
+                }
+            } catch (Exception e) {
+                log.warn("按 zid 统计店铺数失败: zid={}", c.getId(), e);
+            }
+            vo.setSellerCount(sellerCount);
             list.add(vo);
         }
         return Result.success(list);

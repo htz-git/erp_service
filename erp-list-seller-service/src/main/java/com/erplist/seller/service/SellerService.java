@@ -21,4 +21,12 @@ public interface SellerService {
     Page<Seller> querySellers(SellerQueryDTO queryDTO);
 
     void updateStatus(Long id, Integer status);
+
+    /**
+     * 按公司 zid 统计店铺数量（供管理端数据查看等内部调用，不校验当前用户 zid）
+     *
+     * @param zid 公司ID，为空时返回全平台店铺总数
+     * @return 店铺数量
+     */
+    long countByZid(String zid);
 }

@@ -146,6 +146,15 @@ public class SellerServiceImpl implements SellerService {
         saveAuditLog(actionType, "seller", String.valueOf(id), (status == 1 ? "启用" : "禁用") + "店铺: id=" + id);
     }
 
+    @Override
+    public long countByZid(String zid) {
+        LambdaQueryWrapper<Seller> wrapper = new LambdaQueryWrapper<>();
+        if (StringUtils.hasText(zid)) {
+            wrapper.eq(Seller::getZid, zid);
+        }
+        return sellerMapper.selectCount(wrapper);
+    }
+
     private void ensureSameZid(String entityZid) {
         String currentZid = UserContext.getZid();
         if (!StringUtils.hasText(currentZid) || !currentZid.equals(entityZid)) {

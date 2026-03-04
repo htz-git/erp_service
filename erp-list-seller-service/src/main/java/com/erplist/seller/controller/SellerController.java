@@ -55,4 +55,13 @@ public class SellerController {
         sellerService.updateStatus(id, status);
         return Result.success();
     }
+
+    /**
+     * 按 zid 统计店铺数（内部接口，供用户服务管理端数据查看调用；不传 zid 时返回全平台店铺总数）
+     */
+    @GetMapping("/count")
+    public Result<Long> countByZid(@RequestParam(value = "zid", required = false) String zid) {
+        long count = sellerService.countByZid(zid);
+        return Result.success(count);
+    }
 }
