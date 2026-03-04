@@ -8,7 +8,26 @@
       <div class="filter-section">
         <el-form :model="filterForm" inline class="filter-form">
           <el-form-item label="操作类型">
-            <el-input v-model="filterForm.actionType" placeholder="如 user_disable" clearable style="width: 140px" />
+            <el-select v-model="filterForm.actionType" placeholder="全部" clearable style="width: 160px">
+              <el-option label="全部" value="" />
+              <el-option label="公司开通" value="company_onboard" />
+              <el-option label="公司启用" value="company_enable" />
+              <el-option label="公司禁用" value="company_disable" />
+              <el-option label="修改公司信息" value="company_update" />
+              <el-option label="创建用户" value="user_create" />
+              <el-option label="删除用户" value="user_delete" />
+              <el-option label="修改用户" value="user_update" />
+              <el-option label="用户启用" value="user_enable" />
+              <el-option label="用户禁用" value="user_disable" />
+              <el-option label="重置密码" value="user_reset_password" />
+              <el-option label="增加用户权限" value="user_permission_add" />
+              <el-option label="移除用户权限" value="user_permission_remove" />
+              <el-option label="创建店铺" value="seller_create" />
+              <el-option label="修改店铺" value="seller_update" />
+              <el-option label="删除店铺" value="seller_delete" />
+              <el-option label="启用店铺" value="seller_enable" />
+              <el-option label="禁用店铺" value="seller_disable" />
+            </el-select>
           </el-form-item>
           <el-form-item label="对象类型">
             <el-input v-model="filterForm.targetType" placeholder="如 user" clearable style="width: 100px" />

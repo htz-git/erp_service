@@ -9,6 +9,7 @@ import com.erplist.user.entity.UserPermission;
 import com.erplist.user.mapper.PermissionMapper;
 import com.erplist.user.mapper.UserMapper;
 import com.erplist.user.mapper.UserPermissionMapper;
+import com.erplist.user.service.AuditLogService;
 import com.erplist.user.service.UserPermissionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -29,6 +30,7 @@ public class UserPermissionServiceImpl implements UserPermissionService {
     private final PermissionMapper permissionMapper;
     private final UserPermissionMapper userPermissionMapper;
     private final UserMapper userMapper;
+    private final AuditLogService auditLogService;
 
     @Override
     public List<String> getPermissionCodesByUserId(Long userId) {
@@ -89,6 +91,15 @@ public class UserPermissionServiceImpl implements UserPermissionService {
             up.setPermissionId(permissionId);
             userPermissionMapper.insert(up);
         }
+        Long operatorId = UserContext.getUserId();
+        String operatorName = null;
+        if (operatorId != null) {
+            User operator = userMapper.selectById(operatorId);
+            if (operator != null) operatorName = operator.getUsername();
+        }
+        String detail = "为用户增加权限, permissionIds: " + permissionIds.stream().map(String::valueOf).collect(Collectors.joining(","));
+        if (detail.length() > 500) detail = detail.substring(0, 497) + "...";
+        auditLogService.save(operatorId, operatorName, "user_permission_add", "user", String.valueOf(userId), detail);
     }
 
     @Override
@@ -102,6 +113,13 @@ public class UserPermissionServiceImpl implements UserPermissionService {
                         .eq(UserPermission::getUserId, userId)
                         .eq(UserPermission::getPermissionId, permissionId)
         );
+        Long operatorId = UserContext.getUserId();
+        String operatorName = null;
+        if (operatorId != null) {
+            User operator = userMapper.selectById(operatorId);
+            if (operator != null) operatorName = operator.getUsername();
+        }
+        auditLogService.save(operatorId, operatorName, "user_permission_remove", "user", String.valueOf(userId), "移除用户权限, permissionId: " + permissionId);
     }
 
     private void ensureUserInSameZid(Long targetUserId) {

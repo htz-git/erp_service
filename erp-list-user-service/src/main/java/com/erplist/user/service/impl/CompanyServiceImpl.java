@@ -156,6 +156,13 @@ public class CompanyServiceImpl implements CompanyService {
         if (dto.getStatus() != null) company.setStatus(dto.getStatus());
         if (dto.getRemark() != null) company.setRemark(dto.getRemark());
         companyMapper.updateById(company);
+        Long operatorId = UserContext.getUserId();
+        String operatorName = null;
+        if (operatorId != null) {
+            User operator = userMapper.selectById(operatorId);
+            if (operator != null) operatorName = operator.getUsername();
+        }
+        auditLogService.save(operatorId, operatorName, "company_update", "company", zid, "修改公司信息: zid=" + zid);
         return company;
     }
 

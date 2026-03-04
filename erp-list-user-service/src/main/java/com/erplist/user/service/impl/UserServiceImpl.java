@@ -9,8 +9,10 @@ import com.erplist.user.dto.LoginDTO;
 import com.erplist.user.dto.LoginResultDTO;
 import com.erplist.user.dto.UserDTO;
 import com.erplist.user.dto.UserQueryDTO;
+import com.erplist.common.utils.UserContext;
 import com.erplist.user.entity.User;
 import com.erplist.user.mapper.UserMapper;
+import com.erplist.user.service.AuditLogService;
 import com.erplist.user.service.UserPermissionService;
 import com.erplist.user.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +32,7 @@ public class UserServiceImpl implements UserService {
 
     private final UserMapper userMapper;
     private final UserPermissionService userPermissionService;
+    private final AuditLogService auditLogService;
     
     // 简单的token存储（实际项目中应使用Redis或JWT）
     private static final ConcurrentHashMap<String, User> TOKEN_MAP = new ConcurrentHashMap<>();
@@ -68,6 +71,13 @@ public class UserServiceImpl implements UserService {
         // TODO: 密码加密，建议使用BCryptPasswordEncoder
         // 暂时直接存储，实际项目中必须加密
         userMapper.insert(user);
+        Long operatorId = UserContext.getUserId();
+        String operatorName = null;
+        if (operatorId != null) {
+            User operator = userMapper.selectById(operatorId);
+            if (operator != null) operatorName = operator.getUsername();
+        }
+        auditLogService.save(operatorId, operatorName, "user_create", "user", String.valueOf(user.getId()), "创建用户: " + user.getUsername());
         return user;
     }
     
@@ -111,6 +121,13 @@ public class UserServiceImpl implements UserService {
         
         BeanUtils.copyProperties(userDTO, user, "id", "password", "username");
         userMapper.updateById(user);
+        Long operatorId = UserContext.getUserId();
+        String operatorName = null;
+        if (operatorId != null) {
+            User operator = userMapper.selectById(operatorId);
+            if (operator != null) operatorName = operator.getUsername();
+        }
+        auditLogService.save(operatorId, operatorName, "user_update", "user", String.valueOf(id), "修改用户信息: id=" + id);
         // 不返回密码
         user.setPassword(null);
         return user;
@@ -123,6 +140,13 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException("用户不存在");
         }
         userMapper.deleteById(id);
+        Long operatorId = UserContext.getUserId();
+        String operatorName = null;
+        if (operatorId != null) {
+            User operator = userMapper.selectById(operatorId);
+            if (operator != null) operatorName = operator.getUsername();
+        }
+        auditLogService.save(operatorId, operatorName, "user_delete", "user", String.valueOf(id), "删除用户: id=" + id);
     }
     
     @Override

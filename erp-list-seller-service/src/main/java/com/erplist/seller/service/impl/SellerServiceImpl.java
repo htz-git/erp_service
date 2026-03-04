@@ -3,6 +3,7 @@ package com.erplist.seller.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.erplist.api.client.UserClient;
+import com.erplist.api.dto.AuditLogRecordDTO;
 import com.erplist.common.exception.BusinessException;
 import com.erplist.common.result.Result;
 import com.erplist.common.utils.UserContext;
@@ -12,6 +13,7 @@ import com.erplist.seller.entity.Seller;
 import com.erplist.seller.mapper.SellerMapper;
 import com.erplist.seller.service.SellerService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -19,6 +21,7 @@ import org.springframework.util.StringUtils;
 /**
  * 店铺服务实现
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SellerServiceImpl implements SellerService {
@@ -54,6 +57,8 @@ public class SellerServiceImpl implements SellerService {
         sellerMapper.insert(seller);
         seller.setSid(String.valueOf(seller.getId()));
         sellerMapper.updateById(seller);
+        saveAuditLog("seller_create", "seller", String.valueOf(seller.getId()),
+                "创建店铺: " + (StringUtils.hasText(seller.getSellerName()) ? seller.getSellerName() : "id=" + seller.getId()));
         return seller;
     }
 
@@ -77,6 +82,7 @@ public class SellerServiceImpl implements SellerService {
         BeanUtils.copyProperties(dto, seller, "id", "sid", "createTime");
         seller.setZid(UserContext.getZid());
         sellerMapper.updateById(seller);
+        saveAuditLog("seller_update", "seller", String.valueOf(id), "修改店铺: id=" + id);
         return seller;
     }
 
@@ -95,6 +101,7 @@ public class SellerServiceImpl implements SellerService {
             }
         }
         sellerMapper.deleteById(id);
+        saveAuditLog("seller_delete", "seller", String.valueOf(id), "删除店铺: id=" + id);
     }
 
     @Override
@@ -135,12 +142,29 @@ public class SellerServiceImpl implements SellerService {
         }
         seller.setStatus(status);
         sellerMapper.updateById(seller);
+        String actionType = status == 1 ? "seller_enable" : "seller_disable";
+        saveAuditLog(actionType, "seller", String.valueOf(id), (status == 1 ? "启用" : "禁用") + "店铺: id=" + id);
     }
 
     private void ensureSameZid(String entityZid) {
         String currentZid = UserContext.getZid();
         if (!StringUtils.hasText(currentZid) || !currentZid.equals(entityZid)) {
             throw new BusinessException("无权限操作该店铺");
+        }
+    }
+
+    private void saveAuditLog(String actionType, String targetType, String targetId, String detail) {
+        try {
+            AuditLogRecordDTO dto = new AuditLogRecordDTO();
+            dto.setOperatorId(UserContext.getUserId());
+            dto.setOperatorName(null);
+            dto.setActionType(actionType);
+            dto.setTargetType(targetType);
+            dto.setTargetId(targetId);
+            dto.setDetail(detail);
+            userClient.recordAuditLog(dto);
+        } catch (Exception e) {
+            log.warn("记录店铺审计日志失败: actionType={}, targetId={}", actionType, targetId, e);
         }
     }
 }
