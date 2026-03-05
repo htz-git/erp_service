@@ -72,5 +72,10 @@ public interface UserService {
      * 按 zid 统计用户数（用于数据查看）
      */
     long countUsersByZid(String zid);
+
+    /**
+     * 当前用户修改密码（校验原密码后更新）
+     */
+    void changePassword(Long userId, String oldPassword, String newPassword);
 }
 

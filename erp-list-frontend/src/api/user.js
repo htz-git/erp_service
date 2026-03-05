@@ -59,6 +59,11 @@ export const userApi = {
   // 移除用户某条权限
   removeUserPermission(userId, permissionId) {
     return request.delete(`/users/${userId}/permissions/${permissionId}`)
+  },
+
+  // 当前用户修改密码
+  changePassword(data) {
+    return request.put('/users/current/password', data)
   }
 }
 

@@ -43,6 +43,12 @@ public class UserServiceImpl implements UserService {
         if (!StringUtils.hasText(zid)) {
             throw new BusinessException("未登录或缺少租户信息，无法创建用户");
         }
+        if (!StringUtils.hasText(userDTO.getUsername())) {
+            throw new BusinessException("用户名不能为空");
+        }
+        if (!StringUtils.hasText(userDTO.getPassword())) {
+            throw new BusinessException("密码不能为空");
+        }
 
         // 检查用户名是否已存在
         User existUser = userMapper.selectOne(
@@ -248,6 +254,19 @@ public class UserServiceImpl implements UserService {
         User user = userMapper.selectById(userId);
         if (user == null) {
             throw new BusinessException("用户不存在");
+        }
+        user.setPassword(newPassword); // TODO: 加密
+        userMapper.updateById(user);
+    }
+
+    @Override
+    public void changePassword(Long userId, String oldPassword, String newPassword) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException("用户不存在");
+        }
+        if (!user.getPassword().equals(oldPassword)) {
+            throw new BusinessException("原密码错误");
         }
         user.setPassword(newPassword); // TODO: 加密
         userMapper.updateById(user);

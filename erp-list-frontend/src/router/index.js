@@ -71,6 +71,18 @@ const routes = [
         name: 'Dashboard',
         component: () => import('@/views/Dashboard.vue'),
         meta: { title: '首页', icon: 'HomeFilled' }
+      },
+      {
+        path: 'help',
+        name: 'Help',
+        component: () => import('@/views/Help.vue'),
+        meta: { title: '帮助' }
+      },
+      {
+        path: 'settings',
+        name: 'Settings',
+        component: () => import('@/views/Settings.vue'),
+        meta: { title: '设置' }
       }
     ]
   },

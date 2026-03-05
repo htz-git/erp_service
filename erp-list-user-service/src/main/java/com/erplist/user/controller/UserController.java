@@ -1,7 +1,10 @@
 package com.erplist.user.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.erplist.common.exception.BusinessException;
 import com.erplist.common.result.Result;
+import com.erplist.common.utils.UserContext;
+import com.erplist.user.dto.ChangePasswordRequest;
 import com.erplist.user.dto.LoginDTO;
 import com.erplist.user.dto.LoginResultDTO;
 import com.erplist.user.dto.UserDTO;
@@ -41,11 +44,15 @@ public class UserController {
     }
     
     /**
-     * 更新用户
+     * 更新用户（仅允许当前用户修改本人资料：姓名、手机、邮箱）
      */
     @PutMapping("/{id}")
-    public Result<User> updateUser(@PathVariable Long id, 
+    public Result<User> updateUser(@PathVariable Long id,
                                    @Validated @RequestBody UserDTO userDTO) {
+        Long currentUserId = UserContext.getUserId();
+        if (currentUserId == null || !currentUserId.equals(id)) {
+            throw new BusinessException("仅允许修改本人资料");
+        }
         User user = userService.updateUser(id, userDTO);
         return Result.success(user);
     }
@@ -93,15 +100,28 @@ public class UserController {
     @GetMapping("/current")
     public Result<User> getCurrentUser(@RequestHeader(value = "Authorization", required = false) String token) {
         if (token == null || !token.startsWith("Bearer ")) {
-            throw new com.erplist.common.exception.BusinessException("未登录");
+            throw new BusinessException("未登录");
         }
         String actualToken = token.substring(7);
         User user = userService.getUserByToken(actualToken);
         if (user == null) {
-            throw new com.erplist.common.exception.BusinessException("登录已过期");
+            throw new BusinessException("登录已过期");
         }
         user.setPassword(null);
         return Result.success(user);
+    }
+
+    /**
+     * 当前用户修改密码
+     */
+    @PutMapping("/current/password")
+    public Result<Void> changePassword(@Validated @RequestBody ChangePasswordRequest request) {
+        Long currentUserId = UserContext.getUserId();
+        if (currentUserId == null) {
+            throw new BusinessException("未登录");
+        }
+        userService.changePassword(currentUserId, request.getOldPassword(), request.getNewPassword());
+        return Result.success();
     }
 }
 

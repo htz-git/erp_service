@@ -95,12 +95,6 @@
           <el-tooltip content="帮助" placement="bottom">
             <el-icon class="header-icon-row1" @click="onHelp"><QuestionFilled /></el-icon>
           </el-tooltip>
-          <el-tooltip content="通知" placement="bottom">
-            <el-icon class="header-icon-row1" @click="onNotification"><Bell /></el-icon>
-          </el-tooltip>
-          <el-tooltip content="消息" placement="bottom">
-            <el-icon class="header-icon-row1" @click="onMessage"><ChatDotRound /></el-icon>
-          </el-tooltip>
           <el-tooltip content="设置" placement="bottom">
             <el-icon class="header-icon-row1" @click="onSetting"><Setting /></el-icon>
           </el-tooltip>
@@ -121,14 +115,15 @@
       <!-- 顶栏第二行：时区等 -->
       <div class="header-row header-row-2">
         <div class="timezone-bar">
-          <span class="tz-item">北京 {{ timeBeijing }}</span>
-          <span class="tz-item">英国 {{ timeUK }}</span>
-          <span class="tz-item">美东 {{ timeUSEast }}</span>
-          <span class="tz-item">太平洋 {{ timePacific }}</span>
-          <el-dropdown trigger="click">
+          <template v-for="item in tzDisplayList" :key="item.id">
+            <span class="tz-item">{{ item.label }} {{ item.time }}</span>
+          </template>
+          <el-dropdown trigger="click" @command="onTimezoneSetting">
             <el-icon class="header-icon"><Clock /></el-icon>
             <template #dropdown>
-              <el-dropdown-menu><el-dropdown-item>时区设置</el-dropdown-item></el-dropdown-menu>
+              <el-dropdown-menu>
+                <el-dropdown-item command="settings">时区设置</el-dropdown-item>
+              </el-dropdown-menu>
             </template>
           </el-dropdown>
         </div>
@@ -146,9 +141,9 @@
               </el-dropdown-menu>
             </template>
           </el-dropdown>
-          <el-icon class="header-icon"><Refresh /></el-icon>
-          <el-icon class="header-icon"><QuestionFilled /></el-icon>
-          <el-icon class="header-icon"><Setting /></el-icon>
+          <el-icon class="header-icon" @click="onRefresh"><Refresh /></el-icon>
+          <el-icon class="header-icon" @click="onHelp"><QuestionFilled /></el-icon>
+          <el-icon class="header-icon" @click="onSetting"><Setting /></el-icon>
         </div>
       </div>
       <el-main class="main-content">
@@ -180,10 +175,28 @@ import {
   Refresh,
   QuestionFilled,
   Setting,
-  Close,
-  Bell,
-  ChatDotRound
+  Close
 } from '@element-plus/icons-vue'
+
+const TZ_STORAGE_KEY = 'erp_timezone_visible'
+const DEFAULT_TZ_IDS = ['Asia/Shanghai', 'Europe/London', 'America/New_York', 'America/Los_Angeles']
+const TZ_OPTIONS = [
+  { id: 'Asia/Shanghai', label: '北京' },
+  { id: 'Europe/London', label: '英国' },
+  { id: 'America/New_York', label: '美东' },
+  { id: 'America/Los_Angeles', label: '太平洋' }
+]
+
+function getVisibleTzIds() {
+  try {
+    const s = localStorage.getItem(TZ_STORAGE_KEY)
+    if (!s) return DEFAULT_TZ_IDS
+    const arr = JSON.parse(s)
+    return Array.isArray(arr) && arr.length ? arr : DEFAULT_TZ_IDS
+  } catch {
+    return DEFAULT_TZ_IDS
+  }
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -246,6 +259,21 @@ function updateTimes() {
   timePacific.value = formatInTZ(d, 'America/Los_Angeles')
 }
 
+const timeByTz = computed(() => ({
+  'Asia/Shanghai': timeBeijing.value,
+  'Europe/London': timeUK.value,
+  'America/New_York': timeUSEast.value,
+  'America/Los_Angeles': timePacific.value
+}))
+const tzDisplayList = computed(() => {
+  const ids = getVisibleTzIds()
+  return ids.map((id) => ({
+    id,
+    label: TZ_OPTIONS.find((o) => o.id === id)?.label || id,
+    time: timeByTz.value[id] || '--'
+  }))
+})
+
 const activeMenu = computed(() => route.path)
 const currentUser = computed(() => userStore.currentUser())
 const userInitial = computed(() => {
@@ -277,16 +305,16 @@ function closeTab(path) {
 }
 
 function onHelp() {
-  ElMessage.info('帮助中心（占位）')
-}
-function onNotification() {
-  ElMessage.info('通知（占位）')
-}
-function onMessage() {
-  ElMessage.info('消息（占位）')
+  router.push('/help')
 }
 function onSetting() {
-  ElMessage.info('设置（占位）')
+  router.push('/settings')
+}
+function onTimezoneSetting(command) {
+  if (command === 'settings') router.push('/settings')
+}
+function onRefresh() {
+  router.go(0)
 }
 
 const handleCommand = async (command) => {
