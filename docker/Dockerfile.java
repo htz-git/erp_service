@@ -4,6 +4,4 @@
 FROM eclipse-temurin:11-jre-alpine
 ARG JAR_PATH
 COPY ${JAR_PATH} app.jar
-# 支持通过 JAVA_OPTS 限制堆内存（低内存机器必设，避免 OOM 杀 Nacos/MySQL）
-ENV JAVA_OPTS=""
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app.jar"]
+ENTRYPOINT ["java", "-jar", "/app.jar"]

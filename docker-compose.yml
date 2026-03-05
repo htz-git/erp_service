@@ -9,9 +9,7 @@ services:
       dockerfile: docker/Dockerfile.java
       args:
         JAR_PATH: erp-list-user-service/target/erp-list-user-service.jar
-    mem_limit: 192m
     environment:
-      JAVA_OPTS: "-Xmx128m -Xms64m"
       SPRING_CLOUD_NACOS_SERVER_ADDR: ${NACOS_SERVER:-39.105.104.224:8848}
       SPRING_DATASOURCE_URL: jdbc:mysql://${MYSQL_HOST:-39.105.104.224}:3306/erp_list_user?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true&serverTimezone=Asia/Shanghai
       SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-root}
@@ -24,9 +22,7 @@ services:
       dockerfile: docker/Dockerfile.java
       args:
         JAR_PATH: erp-list-seller-service/target/erp-list-seller-service.jar
-    mem_limit: 160m
     environment:
-      JAVA_OPTS: "-Xmx96m -Xms48m"
       SPRING_CLOUD_NACOS_SERVER_ADDR: ${NACOS_SERVER:-39.105.104.224:8848}
       SPRING_DATASOURCE_URL: jdbc:mysql://${MYSQL_HOST:-39.105.104.224}:3306/erp_list_seller?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true&serverTimezone=Asia/Shanghai
       SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-root}
@@ -39,9 +35,7 @@ services:
       dockerfile: docker/Dockerfile.java
       args:
         JAR_PATH: erp-list-order-service/target/erp-list-order-service.jar
-    mem_limit: 192m
     environment:
-      JAVA_OPTS: "-Xmx128m -Xms64m"
       SPRING_CLOUD_NACOS_SERVER_ADDR: ${NACOS_SERVER:-39.105.104.224:8848}
       SPRING_DATASOURCE_URL: jdbc:mysql://${MYSQL_HOST:-39.105.104.224}:3306/erp_list_order?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true&serverTimezone=Asia/Shanghai
       SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-root}
@@ -54,9 +48,7 @@ services:
       dockerfile: docker/Dockerfile.java
       args:
         JAR_PATH: erp-list-product-service/target/erp-list-product-service.jar
-    mem_limit: 96m
     environment:
-      JAVA_OPTS: "-Xmx64m -Xms32m"
       SPRING_CLOUD_NACOS_SERVER_ADDR: ${NACOS_SERVER:-39.105.104.224:8848}
       SPRING_DATASOURCE_URL: jdbc:mysql://${MYSQL_HOST:-39.105.104.224}:3306/erp_list_product?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true&serverTimezone=Asia/Shanghai
       SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-root}
@@ -69,9 +61,7 @@ services:
       dockerfile: docker/Dockerfile.java
       args:
         JAR_PATH: erp-list-purchase-service/target/erp-list-purchase-service.jar
-    mem_limit: 160m
     environment:
-      JAVA_OPTS: "-Xmx96m -Xms48m"
       SPRING_CLOUD_NACOS_SERVER_ADDR: ${NACOS_SERVER:-39.105.104.224:8848}
       SPRING_DATASOURCE_URL: jdbc:mysql://${MYSQL_HOST:-39.105.104.224}:3306/erp_list_purchase?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true&serverTimezone=Asia/Shanghai
       SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-root}
@@ -84,9 +74,7 @@ services:
       dockerfile: docker/Dockerfile.java
       args:
         JAR_PATH: erp-list-refund-service/target/erp-list-refund-service.jar
-    mem_limit: 160m
     environment:
-      JAVA_OPTS: "-Xmx96m -Xms48m"
       SPRING_CLOUD_NACOS_SERVER_ADDR: ${NACOS_SERVER:-39.105.104.224:8848}
       SPRING_DATASOURCE_URL: jdbc:mysql://${MYSQL_HOST:-39.105.104.224}:3306/erp_list_refund?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true&serverTimezone=Asia/Shanghai
       SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-root}
@@ -99,9 +87,7 @@ services:
       dockerfile: docker/Dockerfile.java
       args:
         JAR_PATH: erp-list-replenishment-service/target/erp-list-replenishment-service.jar
-    mem_limit: 192m
     environment:
-      JAVA_OPTS: "-Xmx128m -Xms64m"
       SPRING_CLOUD_NACOS_SERVER_ADDR: ${NACOS_SERVER:-39.105.104.224:8848}
       SPRING_DATASOURCE_URL: jdbc:mysql://${MYSQL_HOST:-39.105.104.224}:3306/erp_list_replenishment?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true&serverTimezone=Asia/Shanghai
       SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-root}
@@ -114,9 +100,7 @@ services:
       dockerfile: docker/Dockerfile.java
       args:
         JAR_PATH: erp-list-gateway/target/erp-list-gateway.jar
-    mem_limit: 96m
     environment:
-      JAVA_OPTS: "-Xmx64m -Xms32m"
       SPRING_CLOUD_NACOS_SERVER_ADDR: ${NACOS_SERVER:-39.105.104.224:8848}
     ports:
       - "8080:8080"
