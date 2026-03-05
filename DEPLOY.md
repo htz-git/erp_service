@@ -153,17 +153,43 @@ if [ $missing -eq 0 ]; then
 fi
 ```
 
-或逐一手动检查：
+或逐一手动检查（Linux/macOS 用 `ls -la`，Windows PowerShell 用 `Get-ChildItem`）：
 
 ```bash
+# Linux / macOS
 ls -la erp-list-user-service/target/erp-list-user-service.jar
 ls -la erp-list-seller-service/target/erp-list-seller-service.jar
-ls -la erp-list-order-service/target/erp-list-order-service.jar
-ls -la erp-list-product-service/target/erp-list-product-service.jar
-ls -la erp-list-purchase-service/target/erp-list-purchase-service.jar
-ls -la erp-list-refund-service/target/erp-list-refund-service.jar
-ls -la erp-list-replenishment-service/target/erp-list-replenishment-service.jar
-ls -la erp-list-gateway/target/erp-list-gateway.jar
+# ... 其余同理
+```
+
+```powershell
+# Windows PowerShell（在项目根目录执行）
+Get-ChildItem erp-list-user-service\target\erp-list-user-service.jar
+Get-ChildItem erp-list-seller-service\target\erp-list-seller-service.jar
+Get-ChildItem erp-list-order-service\target\erp-list-order-service.jar
+Get-ChildItem erp-list-product-service\target\erp-list-product-service.jar
+Get-ChildItem erp-list-purchase-service\target\erp-list-purchase-service.jar
+Get-ChildItem erp-list-refund-service\target\erp-list-refund-service.jar
+Get-ChildItem erp-list-replenishment-service\target\erp-list-replenishment-service.jar
+Get-ChildItem erp-list-gateway\target\erp-list-gateway.jar
+```
+
+或一次性检查（PowerShell）：
+
+```powershell
+$jars = @(
+  "erp-list-user-service\target\erp-list-user-service.jar",
+  "erp-list-seller-service\target\erp-list-seller-service.jar",
+  "erp-list-order-service\target\erp-list-order-service.jar",
+  "erp-list-product-service\target\erp-list-product-service.jar",
+  "erp-list-purchase-service\target\erp-list-purchase-service.jar",
+  "erp-list-refund-service\target\erp-list-refund-service.jar",
+  "erp-list-replenishment-service\target\erp-list-replenishment-service.jar",
+  "erp-list-gateway\target\erp-list-gateway.jar"
+)
+$missing = 0
+foreach ($j in $jars) { if (-not (Test-Path $j)) { Write-Host "缺失: $j"; $missing = 1 } }
+if ($missing -eq 0) { Write-Host "所有后端 jar 已就绪" }
 ```
 
 ### 步骤 2：在项目根目录构建前端
@@ -186,11 +212,18 @@ else
 fi
 ```
 
-或手动检查：
+或手动检查（Linux/macOS 用 `ls -la`，Windows PowerShell 用 `Get-ChildItem`）：
 
 ```bash
+# Linux / macOS
 ls -la erp-list-frontend/dist/
 ls -la erp-list-frontend/dist/index.html
+```
+
+```powershell
+# Windows PowerShell
+Get-ChildItem erp-list-frontend\dist
+Test-Path erp-list-frontend\dist\index.html
 ```
 
 ### 步骤 3：将项目上传到虚拟机（若在本地构建）
