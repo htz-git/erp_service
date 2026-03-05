@@ -1,156 +1,248 @@
-# ERP List 虚拟机部署指南
+# 后端与前端部署到已有 Nacos/MySQL 的虚拟机（Docker）
 
-本文说明如何将 ERP List 前端与后端服务部署到一台或多台虚拟机（Linux）上。
+在 **MySQL 和 Nacos 已部署好** 的虚拟机上，使用 **Docker** 部署本项目的后端服务与前端。Nacos、MySQL 连接地址与当前项目中 `application.yaml` 一致（默认 `39.105.104.224`），无需改成本机或 host 地址。
 
-## 一、架构概览
+---
 
-- **前端**：Vue3 + Vite 构建的静态资源，由 Nginx 提供；请求 `/api` 由 Nginx 反向代理到网关。
-- **网关**：Spring Cloud Gateway（端口 8080），将 `/api/*` 按路径转发到各微服务（通过 Nacos 服务发现 `lb://服务名`）。
-- **微服务**：用户、店铺、订单、商品、采购、退款、补货等，均注册到 Nacos，并连接 MySQL。
-- **基础设施**：Nacos（服务注册与配置）、MySQL（各业务库）。
+## 一、所需环境
 
-```
-用户浏览器 → Nginx(80/443) → 静态前端
-                        → /api → Gateway(8080) → Nacos(lb) → 各微服务(808x) → MySQL
-```
+### 1. 虚拟机已具备
 
-## 二、环境准备
+| 项目 | 说明 |
+|------|------|
+| **MySQL** | 已安装并运行，且已创建各业务库：`erp_list_user`、`erp_list_seller`、`erp_list_order`、`erp_list_product`、`erp_list_purchase`、`erp_list_refund`、`erp_list_replenishment` |
+| **Nacos** | 已安装并运行（端口 8848），地址与项目中配置一致（当前为 `39.105.104.224:8848`） |
 
-在虚拟机上安装：
+### 2. 虚拟机需安装（用于构建与运行 Docker）
 
-| 软件 | 版本要求 | 说明 |
+| 软件 | 版本要求 | 用途 |
 |------|----------|------|
-| JDK | 11 | 后端运行 |
-| Maven | 3.6+ | 后端构建（或本机构建后只传 jar） |
-| Node.js | 16+ | 前端构建（或本机构建后只传 dist） |
-| MySQL | 8.0 | 各服务数据库 |
-| Nacos | 2.x | 服务注册与配置中心 |
+| **Docker** | 20.10+ | 运行后端与前端容器 |
+| **Docker Compose** | 2.0+ | 编排服务 |
+| **JDK** | 11 | 执行 `mvn package` 构建后端 jar |
+| **Maven** | 3.6+ | 构建后端 jar |
+| **Node.js** | 16+ | 构建前端（`npm run build`） |
 
-当前配置中 Nacos 地址为 `39.105.104.224:8848`，MySQL 为 `39.105.104.224:3306`。若部署到新虚拟机，需将以下配置改为实际地址：
+若在本机或 CI 构建，则虚拟机只需 **Docker + Docker Compose**，将构建好的各模块 `target/*.jar` 与 `erp-list-frontend/dist` 上传到虚拟机即可。
 
-- 各服务 `bootstrap.yaml` 或 Nacos 中的 `spring.cloud.nacos.server-addr`
-- 各服务 `application.yaml` 或 Nacos 中的 `spring.datasource.url`（及 username/password）
+### 3. 环境校验与安装
 
-## 三、配置修改（部署到新 VM 时）
+部署前可在虚拟机上先执行以下命令，确认各软件是否已存在及版本是否满足要求。
 
-假设虚拟机 IP 为 `192.168.1.100`，Nacos 与 MySQL 均在该机或可访问的地址。
+**校验是否已安装且版本满足要求**（在虚拟机终端执行）：
 
-1. **Nacos**  
-   - 在 Nacos 控制台或本机 `bootstrap.yaml` / `application.yaml` 中，将 `spring.cloud.nacos.server-addr` 改为 `192.168.1.100:8848`（或实际 Nacos 地址）。
+```bash
+# Docker 需 20.10+
+docker --version
 
-2. **MySQL**  
-   - 各服务的 `application.yaml`（或 Nacos 中对应配置）里，将 `spring.datasource.url` 中的主机改为实际 MySQL 地址，并保证库已创建（如 `erp_list_user` 等）、账号密码正确。
+# Docker Compose 需 2.0+（插件形式为 docker compose，独立命令为 docker-compose）
+docker compose version
+# 或
+docker-compose --version
 
-3. **前端接口地址**  
-   - 生产环境前端已使用相对路径 `/api`（`.env.production` 中 `VITE_API_BASE` 为空），只要浏览器访问的页面与 Nginx 同源且 Nginx 将 `/api` 代理到网关即可，无需再改。
+# JDK 需 11（输出应包含 "11"）
+java -version
+javac -version
 
-## 四、后端构建与运行
+# Maven 需 3.6+
+mvn -version
 
-### 4.1 构建
+# Node.js 需 16+，npm 随 Node 安装
+node -v
+npm -v
+```
 
-在项目根目录（含父 `pom.xml` 的 `erp_list` 目录）执行：
+任一命令报「未找到」或版本低于要求时，需先安装或升级。以下为 **Ubuntu/Debian** 下的安装命令（需 root 或 sudo）。
+
+**安装命令（Ubuntu / Debian）**：
+
+```bash
+# 更新包索引
+sudo apt-get update
+
+# Docker（官方推荐方式：使用 Docker 仓库）
+sudo apt-get install -y ca-certificates curl gnupg
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+# 若希望当前用户直接运行 docker（免 sudo），可执行：
+# sudo usermod -aG docker $USER
+# 然后重新登录
+
+# JDK 11
+sudo apt-get install -y openjdk-11-jdk
+
+# Maven
+sudo apt-get install -y maven
+
+# Node.js 16+（使用 NodeSource 源，以 20.x 为例）
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
+```
+
+**CentOS / RHEL 示例**（若为 dnf 系统可将 `yum` 改为 `dnf`；已安装 Docker 时可只执行 JDK、Maven、Node 三块）：
+
+```bash
+# Docker（若未安装）
+yum install -y yum-utils
+yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+systemctl start docker && systemctl enable docker
+
+# JDK 11
+yum install -y java-11-openjdk-devel
+
+# Maven
+yum install -y maven
+
+# Node.js 16+（NodeSource，以 20.x 为例）
+curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
+yum install -y nodejs
+```
+
+仅安装 JDK、Maven、Node（Docker 已有时可直接复制）：
+
+```bash
+yum install -y java-11-openjdk-devel
+yum install -y maven
+curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
+yum install -y nodejs
+```
+
+安装完成后再次执行上面的「校验是否已安装」命令，确认版本符合要求后再进行 **二、部署流程**。
+
+---
+
+## 二、部署流程
+
+### 步骤 1：在项目根目录构建后端
+
+在 **erp_list** 项目根目录执行：
 
 ```bash
 mvn clean package -DskipTests
 ```
 
-生成的 jar 位于各子模块的 `target/` 下，例如：
-
-- `erp-list-gateway/target/erp-list-gateway.jar`
-- `erp-list-user-service/target/erp-list-user-service.jar`
-- `erp-list-seller-service/target/erp-list-seller-service.jar`
-- 其他服务同理。
-
-### 4.2 启动顺序
-
-1. 启动 **Nacos**（若未常驻）。
-2. 启动 **MySQL**，并确认各业务库与账号就绪。
-3. 启动各**微服务**（顺序无强依赖，但建议先启动用户、店铺等基础服务）：
-   ```bash
-   java -jar erp-list-user-service/target/erp-list-user-service.jar
-   java -jar erp-list-seller-service/target/erp-list-seller-service.jar
-   java -jar erp-list-order-service/target/erp-list-order-service.jar
-   java -jar erp-list-product-service/target/erp-list-product-service.jar
-   java -jar erp-list-purchase-service/target/erp-list-purchase-service.jar
-   java -jar erp-list-refund-service/target/erp-list-refund-service.jar
-   java -jar erp-list-replenishment-service/target/erp-list-replenishment-service.jar
-   ```
-4. 最后启动**网关**（依赖 Nacos 中的服务列表）：
-   ```bash
-   java -jar erp-list-gateway/target/erp-list-gateway.jar
-   ```
-
-网关默认端口 **8080**。可用 `--server.port=8080` 覆盖，或通过 `application-xxx.yaml` / Nacos 配置。
-
-**脚本快捷方式**（在项目根目录执行）：
-
-- 一键构建后端+前端：`bash scripts/build-all.sh`
-- 后台启动所有后端服务：`bash scripts/start-services.sh`（日志与 PID 在 `./logs`）
-- 停止上述服务：`bash scripts/stop-services.sh`
-
-### 4.3 后台运行与 systemd（可选）
-
-使用 `nohup` 或 `systemd` 保持进程常驻，例如对网关：
+**校验后端 jar 是否全部生成**（缺少任一则后续 Docker 构建会失败）：
 
 ```bash
-nohup java -jar erp-list-gateway/target/erp-list-gateway.jar > gateway.log 2>&1 &
+# 检查 8 个 jar 是否都存在（在项目根目录执行）
+required_jars=(
+  erp-list-user-service/target/erp-list-user-service.jar
+  erp-list-seller-service/target/erp-list-seller-service.jar
+  erp-list-order-service/target/erp-list-order-service.jar
+  erp-list-product-service/target/erp-list-product-service.jar
+  erp-list-purchase-service/target/erp-list-purchase-service.jar
+  erp-list-refund-service/target/erp-list-refund-service.jar
+  erp-list-replenishment-service/target/erp-list-replenishment-service.jar
+  erp-list-gateway/target/erp-list-gateway.jar
+)
+missing=0
+for j in "${required_jars[@]}"; do
+  if [ ! -f "$j" ]; then
+    echo "缺失: $j"
+    missing=1
+  fi
+done
+if [ $missing -eq 0 ]; then
+  echo "所有后端 jar 已就绪"
+fi
 ```
 
-或为每个服务编写 `systemd` 的 `*.service` 文件，由 `systemctl start/enable` 管理。
-
-## 五、前端构建与 Nginx 部署
-
-### 5.1 构建前端
-
-在 `erp-list-frontend` 目录下执行：
+或逐一手动检查：
 
 ```bash
-npm ci
-npm run build
+ls -la erp-list-user-service/target/erp-list-user-service.jar
+ls -la erp-list-seller-service/target/erp-list-seller-service.jar
+ls -la erp-list-order-service/target/erp-list-order-service.jar
+ls -la erp-list-product-service/target/erp-list-product-service.jar
+ls -la erp-list-purchase-service/target/erp-list-purchase-service.jar
+ls -la erp-list-refund-service/target/erp-list-refund-service.jar
+ls -la erp-list-replenishment-service/target/erp-list-replenishment-service.jar
+ls -la erp-list-gateway/target/erp-list-gateway.jar
 ```
 
-默认产出在 `dist/`。将整个 `dist` 目录上传到虚拟机的某个目录，例如 `/var/www/erp-list`。
+### 步骤 2：在项目根目录构建前端
 
-### 5.2 Nginx 配置示例
+仍在 **erp_list** 项目根目录执行：
 
-在 Nginx 中为前端与 `/api` 配置一个 server，例如：
-
-```nginx
-server {
-    listen 80;
-    server_name your-domain-or-ip;
-
-    root /var/www/erp-list;
-    index index.html;
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    location /api {
-        proxy_pass http://127.0.0.1:8080;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
+```bash
+cd erp-list-frontend && npm ci && npm run build && cd ..
 ```
 
-- 将 `root` 改为你放置 `dist` 内容的实际路径。
-- 若网关不在本机，将 `proxy_pass` 改为 `http://网关IP:8080`。
-- 若使用 HTTPS，可再增加 `listen 443 ssl` 与证书配置，并保持 `location /api` 代理到网关。
+**校验前端产物是否存在**：
 
-重载 Nginx：`nginx -s reload`。
+```bash
+# 检查 dist 目录及入口文件（在项目根目录执行）
+if [ -d "erp-list-frontend/dist" ] && [ -f "erp-list-frontend/dist/index.html" ]; then
+  echo "前端 dist 已就绪"
+else
+  echo "请确认 erp-list-frontend/dist 已生成且包含 index.html"
+  exit 1
+fi
+```
 
-## 六、验证
+或手动检查：
 
-1. 浏览器访问 `http://虚拟机IP或域名`，应打开前端登录页。
-2. 登录后请求会走 `/api` → 网关 → 用户服务等，可查看 Nacos 控制台确认服务已注册，网关 8080 端口可访问且无 502。
+```bash
+ls -la erp-list-frontend/dist/
+ls -la erp-list-frontend/dist/index.html
+```
 
-## 七、注意事项
+### 步骤 3：将项目上传到虚拟机（若在本地构建）
 
-- **防火墙**：开放 80（Nginx）、8080（若需直连网关）、8848（Nacos）、3306（MySQL，仅内网建议）。
-- **密码与地址**：`application.yaml` 中数据库、Nacos 等含敏感信息，部署时建议用 Nacos 配置中心或环境变量覆盖，不要提交到代码库。
-- **日志**：各服务日志路径在 `application.yaml` 的 `logging.file.path`（如 `logs/erp-list-user-service`），便于排查问题。
+若构建是在本机完成的，将整个 **erp_list** 目录（含各模块 `target/`、`erp-list-frontend/dist/`）上传到已部署好 Nacos、MySQL 的虚拟机，例如 `/opt/erp_list`。上传后可在虚拟机再次执行上述校验命令确认 jar 与 dist 存在。
 
-按以上步骤即可在虚拟机上完成从构建到对外提供访问的部署。
+### 步骤 4：配置环境变量
+
+在虚拟机上的项目根目录执行：
+
+```bash
+cp .env.example .env
+```
+
+`.env.example` 中已按项目当前配置写好 Nacos、MySQL 地址（`39.105.104.224`），一般无需改。若 MySQL 密码不是 `root`，可编辑 `.env` 修改 `MYSQL_PASSWORD`。若 Nacos 或 MySQL 不在该 IP，则修改 `NACOS_SERVER`、`MYSQL_HOST` 为实际地址。
+
+### 步骤 5：使用 Docker Compose 启动
+
+在虚拟机上的项目根目录（包含 `docker-compose.yml` 的目录）执行：
+
+```bash
+docker compose up -d
+```
+
+如需重新构建镜像（例如重新执行过步骤 1、2 后）：
+
+```bash
+docker compose up -d --build
+```
+
+- **前端**：浏览器访问 `http://虚拟机IP`（端口 80，容器内 Nginx 将 `/api` 转发到网关）
+- **后端**：7 个微服务 + 网关在容器内运行，通过 `.env`（默认 `39.105.104.224`）连接 Nacos、MySQL
+
+### 步骤 6：验证
+
+1. 浏览器打开 `http://虚拟机IP`，应出现前端登录页。
+2. 登录后能正常使用（请求走 `/api` → 网关 → 各微服务）。
+3. 在 Nacos 控制台可看到各服务已注册。
+
+---
+
+## 三、常用命令
+
+| 操作 | 命令 |
+|------|------|
+| 停止所有服务 | `docker compose down` |
+| 查看日志 | `docker compose logs -f` 或 `docker compose logs -f gateway`（按服务名） |
+| 重启 | `docker compose restart` 或 `docker compose restart gateway` |
+
+---
+
+## 四、说明
+
+- Nacos、MySQL 连接地址来自 `.env`，默认与项目中 `application.yaml` 一致（`39.105.104.224:8848`、`39.105.104.224:3306`），无需使用本机或 host 地址。
+- 代码或配置变更后，若重新构建了 jar 或前端，需重新执行 **步骤 1、2**（及步骤 3 若在本地构建），再在虚拟机执行 `docker compose up -d --build` 重新构建镜像并启动。

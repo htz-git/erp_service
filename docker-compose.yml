@@ -1,0 +1,120 @@
+# 依赖已部署的 Nacos、MySQL（地址由 .env 提供，默认与项目 application.yaml 一致）
+# 使用前：1) mvn clean package -DskipTests  2) erp-list-frontend 下 npm run build
+#         3) cp .env.example .env  4) docker compose up -d
+
+services:
+  user-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.java
+      args:
+        JAR_PATH: erp-list-user-service/target/erp-list-user-service.jar
+    environment:
+      SPRING_CLOUD_NACOS_SERVER_ADDR: ${NACOS_SERVER:-39.105.104.224:8848}
+      SPRING_DATASOURCE_URL: jdbc:mysql://${MYSQL_HOST:-39.105.104.224}:3306/erp_list_user?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-root}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-root}
+    restart: unless-stopped
+
+  seller-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.java
+      args:
+        JAR_PATH: erp-list-seller-service/target/erp-list-seller-service.jar
+    environment:
+      SPRING_CLOUD_NACOS_SERVER_ADDR: ${NACOS_SERVER:-39.105.104.224:8848}
+      SPRING_DATASOURCE_URL: jdbc:mysql://${MYSQL_HOST:-39.105.104.224}:3306/erp_list_seller?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-root}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-root}
+    restart: unless-stopped
+
+  order-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.java
+      args:
+        JAR_PATH: erp-list-order-service/target/erp-list-order-service.jar
+    environment:
+      SPRING_CLOUD_NACOS_SERVER_ADDR: ${NACOS_SERVER:-39.105.104.224:8848}
+      SPRING_DATASOURCE_URL: jdbc:mysql://${MYSQL_HOST:-39.105.104.224}:3306/erp_list_order?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-root}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-root}
+    restart: unless-stopped
+
+  product-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.java
+      args:
+        JAR_PATH: erp-list-product-service/target/erp-list-product-service.jar
+    environment:
+      SPRING_CLOUD_NACOS_SERVER_ADDR: ${NACOS_SERVER:-39.105.104.224:8848}
+      SPRING_DATASOURCE_URL: jdbc:mysql://${MYSQL_HOST:-39.105.104.224}:3306/erp_list_product?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-root}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-root}
+    restart: unless-stopped
+
+  purchase-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.java
+      args:
+        JAR_PATH: erp-list-purchase-service/target/erp-list-purchase-service.jar
+    environment:
+      SPRING_CLOUD_NACOS_SERVER_ADDR: ${NACOS_SERVER:-39.105.104.224:8848}
+      SPRING_DATASOURCE_URL: jdbc:mysql://${MYSQL_HOST:-39.105.104.224}:3306/erp_list_purchase?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-root}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-root}
+    restart: unless-stopped
+
+  refund-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.java
+      args:
+        JAR_PATH: erp-list-refund-service/target/erp-list-refund-service.jar
+    environment:
+      SPRING_CLOUD_NACOS_SERVER_ADDR: ${NACOS_SERVER:-39.105.104.224:8848}
+      SPRING_DATASOURCE_URL: jdbc:mysql://${MYSQL_HOST:-39.105.104.224}:3306/erp_list_refund?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-root}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-root}
+    restart: unless-stopped
+
+  replenishment-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.java
+      args:
+        JAR_PATH: erp-list-replenishment-service/target/erp-list-replenishment-service.jar
+    environment:
+      SPRING_CLOUD_NACOS_SERVER_ADDR: ${NACOS_SERVER:-39.105.104.224:8848}
+      SPRING_DATASOURCE_URL: jdbc:mysql://${MYSQL_HOST:-39.105.104.224}:3306/erp_list_replenishment?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-root}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-root}
+    restart: unless-stopped
+
+  gateway:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.java
+      args:
+        JAR_PATH: erp-list-gateway/target/erp-list-gateway.jar
+    environment:
+      SPRING_CLOUD_NACOS_SERVER_ADDR: ${NACOS_SERVER:-39.105.104.224:8848}
+    ports:
+      - "8080:8080"
+    depends_on:
+      - user-service
+      - seller-service
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: erp-list-frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - gateway
+    restart: unless-stopped
