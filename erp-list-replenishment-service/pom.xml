@@ -57,7 +57,13 @@
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-bootstrap</artifactId>
         </dependency>
-        <!-- LSTM + 自回归：Java 内建预测，替代 Python 服务 -->
+        <!-- LightGBM：用 Java 内建预测替代原 LSTM 逻辑 -->
+        <dependency>
+            <groupId>io.github.metarank</groupId>
+            <artifactId>lightgbm4j</artifactId>
+            <version>4.4.0-1</version>
+        </dependency>
+        <!-- LSTM + 自回归：保留依赖，便于回滚/对比（实际预测将改为 LightGBM） -->
         <dependency>
             <groupId>org.deeplearning4j</groupId>
             <artifactId>deeplearning4j-core</artifactId>

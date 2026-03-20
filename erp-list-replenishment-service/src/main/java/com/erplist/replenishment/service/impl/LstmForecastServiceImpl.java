@@ -7,6 +7,8 @@ import com.erplist.replenishment.dto.ForecastMetricsResultDTO;
 import com.erplist.replenishment.service.LstmForecastService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import io.github.metarank.lightgbm4j.LGBMBooster;
+import io.github.metarank.lightgbm4j.LGBMDataset;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.factory.Nd4j;
 import org.springframework.stereotype.Service;
@@ -15,7 +17,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * LSTM + 自回归预测实现：优先使用 DL4J，数据不足或异常时退回移动平均
+ * LightGBM + 自回归预测实现：数据不足或异常时退回移动平均
  */
 @Slf4j
 @Service
@@ -60,90 +62,93 @@ public class LstmForecastServiceImpl implements LstmForecastService {
         try {
             return predictWithLstm(arr, seqLen, forecastDays);
         } catch (Throwable t) {
-            log.debug("LSTM 预测失败，使用移动平均: {}", t.getMessage());
+            log.debug("LightGBM 预测失败，使用移动平均: {}", t.getMessage());
             return predictMovingAverage(arr, forecastDays);
         }
     }
 
     private List<Double> predictWithLstm(double[] values, int seqLen, int forecastDays) {
-        org.deeplearning4j.nn.conf.MultiLayerConfiguration conf = buildLstmConfig();
-        org.deeplearning4j.nn.multilayer.MultiLayerNetwork net =
-                new org.deeplearning4j.nn.multilayer.MultiLayerNetwork(conf);
-        net.init();
+        // 确保原生库加载；若加载失败则外层捕获并回退移动平均
+        if (!LGBMBooster.isNativeLoaded()) {
+            try {
+                LGBMBooster.loadNative();
+            } catch (Exception e) {
+                throw new RuntimeException("LightGBM native load failed", e);
+            }
+        }
 
-        // 归一化到 [0,1]，与开题报告口径对齐；预测后再反归一化
+        // 归一化到 [0,1]，预测后再反归一化；同时保证输出非负
         MinMaxScaler scaler = MinMaxScaler.fit(values);
         double[] scaled = scaler.transform(values);
 
-        // 构造训练数据：滑动窗口 (X: seqLen 个点 -> 每个时间步预测下一时刻，labels 与 input 同长)
-        // DL4J RnnOutputLayer 要求 labels 的 sequence length 与 input 一致，即 [batch, nOut, seqLen]
+        // 滑动窗口回归：X = [t-seqLen ... t-1] -> y = t
         int nSamples = scaled.length - seqLen;
         if (nSamples < 2) {
             return predictMovingAverage(values, forecastDays);
         }
-        INDArray input = Nd4j.create(nSamples, 1, seqLen);
-        INDArray labels = Nd4j.create(nSamples, 1, seqLen);
-        for (int i = 0; i < nSamples; i++) {
-            for (int t = 0; t < seqLen; t++) {
-                input.putScalar(i, 0, t, scaled[i + t]);
-                // 时间步 t 的标签 = 下一时刻的值 scaled[i+t+1]，最后一格 t=seqLen-1 即为 scaled[i+seqLen]
-                labels.putScalar(i, 0, t, scaled[i + t + 1]);
+
+        int numRows = nSamples;
+        int numFeatures = seqLen;
+        int numCols = numFeatures + 1; // 最后一列为 label
+
+        double[] trainData = new double[numRows * numCols];
+        for (int i = 0; i < numRows; i++) {
+            int base = i * numCols;
+            for (int t = 0; t < numFeatures; t++) {
+                trainData[base + t] = scaled[i + t];
             }
+            trainData[base + numFeatures] = scaled[i + numFeatures];
         }
 
-        // 早停：使用最后 20% 的样本窗口作为验证集
-        int totalSamples = (int) input.size(0);
-        int valSamples = Math.max(1, (int) Math.round(totalSamples * 0.2));
-        int trainSamples = Math.max(1, totalSamples - valSamples);
-        INDArray trainX = input.get(org.nd4j.linalg.indexing.NDArrayIndex.interval(0, trainSamples),
-                org.nd4j.linalg.indexing.NDArrayIndex.all(),
-                org.nd4j.linalg.indexing.NDArrayIndex.all());
-        INDArray trainY = labels.get(org.nd4j.linalg.indexing.NDArrayIndex.interval(0, trainSamples),
-                org.nd4j.linalg.indexing.NDArrayIndex.all(),
-                org.nd4j.linalg.indexing.NDArrayIndex.all());
-        INDArray valX = input.get(org.nd4j.linalg.indexing.NDArrayIndex.interval(trainSamples, totalSamples),
-                org.nd4j.linalg.indexing.NDArrayIndex.all(),
-                org.nd4j.linalg.indexing.NDArrayIndex.all());
-        INDArray valY = labels.get(org.nd4j.linalg.indexing.NDArrayIndex.interval(trainSamples, totalSamples),
-                org.nd4j.linalg.indexing.NDArrayIndex.all(),
-                org.nd4j.linalg.indexing.NDArrayIndex.all());
+        int numLeaves = Math.max(2, Math.min(256, props.getHiddenUnits()));
+        String params = "objective=regression metric=l2 learning_rate=" + props.getLearningRate()
+                + " num_leaves=" + numLeaves
+                + " num_iterations=" + Math.max(1, props.getEpochs())
+                + " verbosity=-1 seed=42";
 
-        double bestVal = Double.POSITIVE_INFINITY;
-        int noImprove = 0;
-        for (int epoch = 0; epoch < props.getEpochs(); epoch++) {
-            net.fit(trainX, trainY);
-            double valLoss = mseOn(valX, valY, net);
-            if (bestVal - valLoss > props.getEarlyStopMinDelta()) {
-                bestVal = valLoss;
-                noImprove = 0;
-            } else {
-                noImprove++;
-                if (noImprove >= props.getEarlyStopPatience()) {
-                    break;
+        try {
+            try (LGBMDataset dataset = LGBMDataset.createFromMat(trainData, numRows, numCols, true, "label", null);
+                 LGBMBooster booster = LGBMBooster.create(dataset, params)) {
+
+                // 训练：逐步 updateOneIter，直到训练完成
+                for (int i = 0; i < Math.max(1, props.getEpochs()); i++) {
+                    boolean cont = booster.updateOneIter();
+                    if (!cont) break;
                 }
-            }
-        }
 
-        // 自回归预测
-        List<Double> forecast = new ArrayList<>();
-        double[] lastSeq = Arrays.copyOfRange(scaled, scaled.length - seqLen, scaled.length);
-        for (int d = 0; d < forecastDays; d++) {
-            INDArray x = Nd4j.create(1, 1, seqLen);
-            for (int t = 0; t < seqLen; t++) {
-                x.putScalar(0, 0, t, lastSeq[t]);
+                // 自回归滚动预测
+                List<Double> forecast = new ArrayList<>(forecastDays);
+                double[] lastSeq = Arrays.copyOfRange(scaled, scaled.length - seqLen, scaled.length);
+                for (int d = 0; d < forecastDays; d++) {
+                    double predScaled = predictForMatSingleRow(booster, lastSeq);
+                    predScaled = clamp01(predScaled);
+                    double pred = Math.max(0, scaler.inverse(predScaled));
+                    forecast.add(Math.round(pred * 100) / 100.0);
+
+                    // 滑动窗口：左移 + 追加预测值（scaled 空间）
+                    if (seqLen - 1 > 0) {
+                        System.arraycopy(lastSeq, 1, lastSeq, 0, seqLen - 1);
+                    }
+                    lastSeq[seqLen - 1] = predScaled;
+                }
+                return forecast;
             }
-            INDArray out = net.output(x);
-            // 输出形状 [1, 1, seqLen]，取最后一个时间步作为“下一日”预测
-            double predScaled = clamp01(out.getDouble(0, 0, seqLen - 1));
-            double pred = Math.max(0, scaler.inverse(predScaled));
-            forecast.add(Math.round(pred * 100) / 100.0);
-            // 滑动窗口：去掉第一个，末尾加上预测值
-            double[] nextSeq = new double[seqLen];
-            System.arraycopy(lastSeq, 1, nextSeq, 0, seqLen - 1);
-            nextSeq[seqLen - 1] = predScaled;
-            lastSeq = nextSeq;
+        } catch (io.github.metarank.lightgbm4j.LGBMException e) {
+            throw new RuntimeException(e);
         }
-        return forecast;
+    }
+
+    private static double predictForMatSingleRow(LGBMBooster booster, double[] features) {
+        try {
+            Class<?> ptClass = Class.forName("com.microsoft.ml.lightgbm.PredictionType");
+            @SuppressWarnings("unchecked")
+            Enum<?> pt = Enum.valueOf((Class<? extends Enum>) ptClass, "C_API_PREDICT_NORMAL");
+            return (double) booster.getClass()
+                    .getMethod("predictForMatSingleRow", double[].class, ptClass)
+                    .invoke(booster, features, pt);
+        } catch (Throwable e) {
+            throw new RuntimeException("LightGBM predict failed (PredictionType via reflection)", e);
+        }
     }
 
     private org.deeplearning4j.nn.conf.MultiLayerConfiguration buildLstmConfig() {
@@ -251,31 +256,81 @@ public class LstmForecastServiceImpl implements LstmForecastService {
         }
 
         try {
-            // 训练：仅用 train 部分拟合
+            // 训练：仅用 train 部分拟合（单步回归：窗口 -> 下一天）
             double[] trainValues = Arrays.copyOfRange(arr, 0, trainLen);
-            org.deeplearning4j.nn.multilayer.MultiLayerNetwork net = fitModel(trainValues, seqLen);
 
-            // walk-forward：对 test 部分逐点预测（单步预测）
+            // walk-forward：对 test 部分逐点预测（单步预测；使用真实历史窗口，不递归）
             MinMaxScaler scaler = MinMaxScaler.fit(trainValues);
+            double[] scaledTrain = scaler.transform(trainValues);
             double[] scaledAll = scaler.transform(Arrays.copyOfRange(arr, 0, totalLen));
 
-            List<Double> y = new ArrayList<>();
-            List<Double> yhat = new ArrayList<>();
-            for (int i = trainLen; i < totalLen; i++) {
-                if (i - seqLen < 0) continue;
-                INDArray x = Nd4j.create(1, 1, seqLen);
-                for (int t = 0; t < seqLen; t++) {
-                    x.putScalar(0, 0, t, scaledAll[i - seqLen + t]);
+            if (!LGBMBooster.isNativeLoaded()) {
+                try {
+                    LGBMBooster.loadNative();
+                } catch (Exception e) {
+                    throw new RuntimeException("LightGBM native load failed", e);
                 }
-                INDArray out = net.output(x);
-                double predScaled = clamp01(out.getDouble(0, 0, seqLen - 1));
-                double pred = Math.max(0, scaler.inverse(predScaled));
-                y.add(arr[i]);
-                yhat.add(pred);
             }
-            return new EvalPair(y, yhat, computeMetrics(y, yhat));
+
+            int nTrainSamples = scaledTrain.length - seqLen;
+            if (nTrainSamples < 2) {
+                // 训练集太短：直接用移动平均评估
+                List<Double> y = new ArrayList<>();
+                List<Double> yhat = new ArrayList<>();
+                for (int i = trainLen; i < totalLen; i++) {
+                    y.add(arr[i]);
+                    yhat.add(movingAvg(arr, Math.max(0, i - 14), i));
+                }
+                return new EvalPair(y, yhat, computeMetrics(y, yhat));
+            }
+
+            int numRows = nTrainSamples;
+            int numFeatures = seqLen;
+            int numCols = numFeatures + 1; // 最后一列为 label
+            double[] trainData = new double[numRows * numCols];
+            for (int i = 0; i < numRows; i++) {
+                int base = i * numCols;
+                for (int t = 0; t < numFeatures; t++) {
+                    trainData[base + t] = scaledTrain[i + t];
+                }
+                trainData[base + numFeatures] = scaledTrain[i + numFeatures];
+            }
+
+            int numLeaves = Math.max(2, Math.min(256, props.getHiddenUnits()));
+            String params = "objective=regression metric=l2 learning_rate=" + props.getLearningRate()
+                    + " num_leaves=" + numLeaves
+                    + " num_iterations=" + Math.max(1, props.getEpochs())
+                    + " verbosity=-1 seed=42";
+
+            try {
+                try (LGBMDataset dataset = LGBMDataset.createFromMat(trainData, numRows, numCols, true, "label", null);
+                     LGBMBooster booster = LGBMBooster.create(dataset, params)) {
+
+                    for (int i = 0; i < Math.max(1, props.getEpochs()); i++) {
+                        boolean cont = booster.updateOneIter();
+                        if (!cont) break;
+                    }
+
+                    List<Double> y = new ArrayList<>();
+                    List<Double> yhat = new ArrayList<>();
+                    double[] window = new double[seqLen];
+                    for (int i = trainLen; i < totalLen; i++) {
+                        for (int t = 0; t < seqLen; t++) {
+                            window[t] = scaledAll[i - seqLen + t];
+                        }
+                    double predScaled = predictForMatSingleRow(booster, window);
+                        predScaled = clamp01(predScaled);
+                        double pred = Math.max(0, scaler.inverse(predScaled));
+                        y.add(arr[i]);
+                        yhat.add(pred);
+                    }
+                    return new EvalPair(y, yhat, computeMetrics(y, yhat));
+                }
+            } catch (io.github.metarank.lightgbm4j.LGBMException e) {
+                throw new RuntimeException(e);
+            }
         } catch (Throwable t) {
-            log.debug("LSTM 指标评估失败，使用移动平均: {}", t.getMessage());
+            log.debug("LightGBM 指标评估失败，使用移动平均: {}", t.getMessage());
             List<Double> y = new ArrayList<>();
             List<Double> yhat = new ArrayList<>();
             for (int i = trainLen; i < totalLen; i++) {
