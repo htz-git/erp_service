@@ -32,6 +32,16 @@ public class ReplenishmentSuggestionDTO {
     private List<Double> forecastDaily;
     /** 当前库存（无记录时为 0） */
     private Integer currentStock;
-    /** 建议补货数量（max(0, 预测需求量 - 当前库存)） */
+    /** 安全库存（默认使用库存表 minStock；无记录时为 0） */
+    private Integer safetyStock;
+    /** 采购提前期（天） */
+    private Integer leadTimeDays;
+    /** 提前期需求量（= 日均需求 × 提前期） */
+    private Integer leadTimeDemand;
+    /** 再订货点 ROP（= 提前期需求量 + 安全库存） */
+    private Integer reorderPoint;
+    /** 建议补货数量（max(0, ROP - 当前库存)） */
     private Integer suggestedQuantity;
+    /** 建议说明（便于前端展示与论文描述） */
+    private String suggestionReason;
 }

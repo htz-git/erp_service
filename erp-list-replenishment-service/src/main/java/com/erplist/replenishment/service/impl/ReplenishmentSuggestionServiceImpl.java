@@ -5,6 +5,7 @@ import com.erplist.api.dto.SalesTimeSeriesItemDTO;
 import com.erplist.common.exception.BusinessException;
 import com.erplist.common.result.Result;
 import com.erplist.common.utils.UserContext;
+import com.erplist.replenishment.config.ReplenishmentSuggestionProperties;
 import com.erplist.replenishment.dto.ReplenishmentSuggestionDTO;
 import com.erplist.replenishment.entity.Inventory;
 import com.erplist.replenishment.mapper.InventoryMapper;
@@ -34,11 +35,7 @@ public class ReplenishmentSuggestionServiceImpl implements ReplenishmentSuggesti
     private final OrderClient orderClient;
     private final LstmForecastService lstmForecastService;
     private final InventoryMapper inventoryMapper;
-
-    private static final int DEFAULT_HISTORY_DAYS = 30;
-    private static final int DEFAULT_FORECAST_DAYS = 7;
-    /** 预测需求加成系数（1.1 = 10% 盈余），用于应对销量激增，避免断货 */
-    private static final double FORECAST_BUFFER_RATIO = 1.1;
+    private final ReplenishmentSuggestionProperties suggestionProps;
 
     @Override
     public List<ReplenishmentSuggestionDTO> getSuggestions(ReplenishmentSuggestionQueryDTO queryDTO) {
@@ -52,10 +49,10 @@ public class ReplenishmentSuggestionServiceImpl implements ReplenishmentSuggesti
                 : LocalDate.now().minusDays(1);
         LocalDate startDate = queryDTO != null && queryDTO.getStartDate() != null
                 ? queryDTO.getStartDate()
-                : endDate.minusDays(DEFAULT_HISTORY_DAYS);
+                : endDate.minusDays(suggestionProps.getHistoryDays());
         int forecastDays = queryDTO != null && queryDTO.getForecastDays() != null
                 ? Math.min(30, Math.max(1, queryDTO.getForecastDays()))
-                : DEFAULT_FORECAST_DAYS;
+                : suggestionProps.getForecastDays();
 
         // 未选店铺：查询当前公司下所有有订单的店铺，分别生成补货建议（每条带对应 sid）
         // 已选店铺：只查选中店铺的订单并生成该店铺的补货建议
@@ -129,6 +126,7 @@ public class ReplenishmentSuggestionServiceImpl implements ReplenishmentSuggesti
                 .distinct()
                 .collect(Collectors.toList());
         Map<Long, Integer> skuIdToStock = new HashMap<>();
+        Map<Long, Integer> skuIdToMinStock = new HashMap<>();
         if (!skuIds.isEmpty()) {
             LambdaQueryWrapper<Inventory> wrapper = new LambdaQueryWrapper<>();
             wrapper.eq(Inventory::getZid, zid).eq(Inventory::getSid, sid).in(Inventory::getSkuId, skuIds);
@@ -136,6 +134,9 @@ public class ReplenishmentSuggestionServiceImpl implements ReplenishmentSuggesti
             for (Inventory inv : inventories) {
                 if (inv.getSkuId() != null && inv.getCurrentStock() != null) {
                     skuIdToStock.put(inv.getSkuId(), inv.getCurrentStock());
+                }
+                if (inv.getSkuId() != null && inv.getMinStock() != null) {
+                    skuIdToMinStock.put(inv.getSkuId(), inv.getMinStock());
                 }
             }
         }
@@ -147,8 +148,22 @@ public class ReplenishmentSuggestionServiceImpl implements ReplenishmentSuggesti
             List<Double> forecastDaily = toDoubleList(p.get("forecastDaily"));
             int total = forecastTotal != null ? forecastTotal : 0;
             int currentStock = skuId != null ? skuIdToStock.getOrDefault(skuId, 0) : 0;
-            int demandWithBuffer = (int) Math.round(total * FORECAST_BUFFER_RATIO);
-            int suggestedQuantity = Math.max(0, demandWithBuffer - currentStock);
+
+            // 安全库存：默认取库存表 minStock（无记录/为空则 0）
+            int safetyStock = 0;
+            if (suggestionProps.isUseMinStockAsSafetyStock() && skuId != null) {
+                safetyStock = skuIdToMinStock.getOrDefault(skuId, 0);
+            }
+
+            int leadTimeDays = Math.max(0, suggestionProps.getLeadTimeDays());
+            double bufferRatio = suggestionProps.getForecastBufferRatio();
+            double avgDaily = forecastDays > 0 ? (double) total / forecastDays : 0d;
+            int leadTimeDemand = (int) Math.ceil(Math.max(0d, avgDaily * leadTimeDays * Math.max(0d, bufferRatio)));
+            int reorderPoint = leadTimeDemand + Math.max(0, safetyStock);
+            int suggestedQuantity = Math.max(0, reorderPoint - currentStock);
+
+            String reason = String.format("预测%d天总需求=%d，日均=%.2f；提前期=%d天，缓冲系数=%.2f；安全库存=%d；ROP=%d；当前库存=%d",
+                    forecastDays, total, avgDaily, leadTimeDays, bufferRatio, safetyStock, reorderPoint, currentStock);
             suggestions.add(ReplenishmentSuggestionDTO.builder()
                     .sid(sid)
                     .skuId(skuId)
@@ -158,7 +173,12 @@ public class ReplenishmentSuggestionServiceImpl implements ReplenishmentSuggesti
                     .forecastTotal(total)
                     .forecastDaily(forecastDaily)
                     .currentStock(currentStock)
+                    .safetyStock(safetyStock)
+                    .leadTimeDays(leadTimeDays)
+                    .leadTimeDemand(leadTimeDemand)
+                    .reorderPoint(reorderPoint)
                     .suggestedQuantity(suggestedQuantity)
+                    .suggestionReason(reason)
                     .build());
         }
         return suggestions;

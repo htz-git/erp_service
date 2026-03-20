@@ -34,3 +34,21 @@ knife4j:
         api-rule-resources:
           - com.erplist.replenishment.controller
 
+# 开题报告口径参数：LSTM 预测与补货建议（可按论文调优）
+replenishment:
+  lstm:
+    time-steps: 30
+    hidden-units: 64
+    learning-rate: 0.001
+    epochs: 50
+    early-stop-patience: 5
+    early-stop-min-delta: 1.0e-4
+    min-history-len: 5
+    max-forecast-days: 30
+  suggestion:
+    history-days: 30
+    forecast-days: 7
+    forecast-buffer-ratio: 1.1
+    lead-time-days: 3
+    use-min-stock-as-safety-stock: true
+
