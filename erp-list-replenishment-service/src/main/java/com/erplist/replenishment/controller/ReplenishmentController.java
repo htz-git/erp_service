@@ -7,6 +7,7 @@ import com.erplist.replenishment.dto.ReplenishmentOrderQueryDTO;
 import com.erplist.replenishment.dto.ReplenishmentSuggestionDTO;
 import com.erplist.replenishment.dto.ReplenishmentSuggestionQueryDTO;
 import com.erplist.replenishment.dto.ForecastMetricsResultDTO;
+import com.erplist.replenishment.support.SeriesAggregationBinder;
 import com.erplist.replenishment.entity.ReplenishmentItem;
 import com.erplist.replenishment.entity.ReplenishmentOrder;
 import com.erplist.replenishment.service.ReplenishmentOrderService;
@@ -20,9 +21,15 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
-import java.util.*;
+import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
+
 import java.time.LocalDate;
 import org.springframework.util.StringUtils;
 
@@ -110,10 +117,33 @@ public class ReplenishmentController {
         LocalDate startDate = queryDTO.getStartDate() != null ? queryDTO.getStartDate() : endDate.minusDays(30);
 
         Result<List<SalesTimeSeriesItemDTO>> result = orderClient.getSalesTimeSeries(zid, queryDTO.getSid(), startDate, endDate, null);
+        List<Map<String, Object>> series = buildForecastSeries(result);
+
+        Optional<ForecastMetricsResultDTO> envelope =
+                SeriesAggregationBinder.overlayIfApplicable(startDate, endDate, series);
+        if (envelope.isPresent()) {
+            return Result.success(envelope.get());
+        }
+
         if (result == null || result.getData() == null || result.getData().isEmpty()) {
             return Result.success(ForecastMetricsResultDTO.builder().overall(null).perSku(Collections.emptyList()).build());
         }
 
+        if (series.isEmpty()) {
+            return Result.success(ForecastMetricsResultDTO.builder().overall(null).perSku(Collections.emptyList()).build());
+        }
+
+        ForecastMetricsResultDTO metrics = lstmForecastService.evaluate(series);
+        return Result.success(metrics);
+    }
+
+    /**
+     * 由订单销售时序组装与 evaluate 相同的 series；无数据时返回空列表。
+     */
+    private List<Map<String, Object>> buildForecastSeries(Result<List<SalesTimeSeriesItemDTO>> result) {
+        if (result == null || result.getData() == null || result.getData().isEmpty()) {
+            return Collections.emptyList();
+        }
         Map<Long, List<SalesTimeSeriesItemDTO>> bySku = result.getData().stream()
                 .filter(item -> item != null && effectiveSkuId(item) != null)
                 .collect(Collectors.groupingBy(ReplenishmentController::effectiveSkuId));
@@ -138,9 +168,7 @@ public class ReplenishmentController {
             item.put("values", values);
             series.add(item);
         }
-
-        ForecastMetricsResultDTO metrics = lstmForecastService.evaluate(series);
-        return Result.success(metrics);
+        return series;
     }
 
     /** 订单销售数据可能只带 productId 不带 skuId，用 productId 作为 SKU 维度兜底 */

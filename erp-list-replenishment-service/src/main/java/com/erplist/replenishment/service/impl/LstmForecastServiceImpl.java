@@ -7,17 +7,18 @@ import com.erplist.replenishment.dto.ForecastMetricsResultDTO;
 import com.erplist.replenishment.service.LstmForecastService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import io.github.metarank.lightgbm4j.LGBMBooster;
-import io.github.metarank.lightgbm4j.LGBMDataset;
+import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
+import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.factory.Nd4j;
+import org.nd4j.linalg.indexing.NDArrayIndex;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * LightGBM + 自回归预测实现：数据不足或异常时退回移动平均
+ * LSTM（DL4J）+ 自回归滚动预测；数据不足或训练/推理异常时退回移动平均
  */
 @Slf4j
 @Service
@@ -62,96 +63,51 @@ public class LstmForecastServiceImpl implements LstmForecastService {
         try {
             return predictWithLstm(arr, seqLen, forecastDays);
         } catch (Throwable t) {
-            log.debug("LightGBM 预测失败，使用移动平均: {}", t.getMessage());
+            log.debug("LSTM 预测失败，使用移动平均: {}", t.getMessage());
             return predictMovingAverage(arr, forecastDays);
         }
     }
 
     private List<Double> predictWithLstm(double[] values, int seqLen, int forecastDays) {
-        // 确保原生库加载；若加载失败则外层捕获并回退移动平均
-        if (!LGBMBooster.isNativeLoaded()) {
-            try {
-                LGBMBooster.loadNative();
-            } catch (Exception e) {
-                throw new RuntimeException("LightGBM native load failed", e);
-            }
-        }
-
-        // 归一化到 [0,1]，预测后再反归一化；同时保证输出非负
         MinMaxScaler scaler = MinMaxScaler.fit(values);
         double[] scaled = scaler.transform(values);
-
-        // 滑动窗口回归：X = [t-seqLen ... t-1] -> y = t
         int nSamples = scaled.length - seqLen;
         if (nSamples < 2) {
             return predictMovingAverage(values, forecastDays);
         }
 
-        int numRows = nSamples;
-        int numFeatures = seqLen;
-        int numCols = numFeatures + 1; // 最后一列为 label
+        MultiLayerNetwork net = fitModelOnScaled(scaled, seqLen);
 
-        double[] trainData = new double[numRows * numCols];
-        for (int i = 0; i < numRows; i++) {
-            int base = i * numCols;
-            for (int t = 0; t < numFeatures; t++) {
-                trainData[base + t] = scaled[i + t];
+        List<Double> forecast = new ArrayList<>(forecastDays);
+        double[] lastSeq = Arrays.copyOfRange(scaled, scaled.length - seqLen, scaled.length);
+        for (int d = 0; d < forecastDays; d++) {
+            double predScaled = lstmLastTimestepPrediction(net, lastSeq);
+            predScaled = clamp01(predScaled);
+            double pred = Math.max(0, scaler.inverse(predScaled));
+            forecast.add(Math.round(pred * 100) / 100.0);
+
+            if (seqLen - 1 > 0) {
+                System.arraycopy(lastSeq, 1, lastSeq, 0, seqLen - 1);
             }
-            trainData[base + numFeatures] = scaled[i + numFeatures];
+            lastSeq[seqLen - 1] = predScaled;
         }
-
-        int numLeaves = Math.max(2, Math.min(256, props.getHiddenUnits()));
-        String params = "objective=regression metric=l2 learning_rate=" + props.getLearningRate()
-                + " num_leaves=" + numLeaves
-                + " num_iterations=" + Math.max(1, props.getEpochs())
-                + " verbosity=-1 seed=42";
-
-        try {
-            try (LGBMDataset dataset = LGBMDataset.createFromMat(trainData, numRows, numCols, true, "label", null);
-                 LGBMBooster booster = LGBMBooster.create(dataset, params)) {
-
-                // 训练：逐步 updateOneIter，直到训练完成
-                for (int i = 0; i < Math.max(1, props.getEpochs()); i++) {
-                    boolean cont = booster.updateOneIter();
-                    if (!cont) break;
-                }
-
-                // 自回归滚动预测
-                List<Double> forecast = new ArrayList<>(forecastDays);
-                double[] lastSeq = Arrays.copyOfRange(scaled, scaled.length - seqLen, scaled.length);
-                for (int d = 0; d < forecastDays; d++) {
-                    double predScaled = predictForMatSingleRow(booster, lastSeq);
-                    predScaled = clamp01(predScaled);
-                    double pred = Math.max(0, scaler.inverse(predScaled));
-                    forecast.add(Math.round(pred * 100) / 100.0);
-
-                    // 滑动窗口：左移 + 追加预测值（scaled 空间）
-                    if (seqLen - 1 > 0) {
-                        System.arraycopy(lastSeq, 1, lastSeq, 0, seqLen - 1);
-                    }
-                    lastSeq[seqLen - 1] = predScaled;
-                }
-                return forecast;
-            }
-        } catch (io.github.metarank.lightgbm4j.LGBMException e) {
-            throw new RuntimeException(e);
-        }
+        return forecast;
     }
 
-    private static double predictForMatSingleRow(LGBMBooster booster, double[] features) {
-        try {
-            Class<?> ptClass = Class.forName("com.microsoft.ml.lightgbm.PredictionType");
-            @SuppressWarnings("unchecked")
-            Enum<?> pt = Enum.valueOf((Class<? extends Enum>) ptClass, "C_API_PREDICT_NORMAL");
-            return (double) booster.getClass()
-                    .getMethod("predictForMatSingleRow", double[].class, ptClass)
-                    .invoke(booster, features, pt);
-        } catch (Throwable e) {
-            throw new RuntimeException("LightGBM predict failed (PredictionType via reflection)", e);
+    /**
+     * 单条样本前向：输入窗口 shape (1,1,seqLen)，取 RNN 最后一个时间步的预测值（与训练时 labels 末位对齐）
+     */
+    private static double lstmLastTimestepPrediction(MultiLayerNetwork net, double[] window) {
+        INDArray input = Nd4j.create(1, 1, window.length);
+        for (int t = 0; t < window.length; t++) {
+            input.putScalar(0, 0, t, window[t]);
         }
+        INDArray out = net.output(input);
+        int lastT = (int) out.size(2) - 1;
+        return out.getDouble(0, 0, lastT);
     }
 
-    private org.deeplearning4j.nn.conf.MultiLayerConfiguration buildLstmConfig() {
+    private MultiLayerConfiguration buildLstmConfig() {
         return new org.deeplearning4j.nn.conf.NeuralNetConfiguration.Builder()
                 .seed(42)
                 .updater(new org.nd4j.linalg.learning.config.Adam(props.getLearningRate()))
@@ -245,7 +201,6 @@ public class LstmForecastServiceImpl implements LstmForecastService {
 
         int seqLen = Math.min(props.getTimeSteps(), trainLen - 1);
         if (seqLen < 2) {
-            // 序列太短：移动平均评估
             List<Double> y = new ArrayList<>();
             List<Double> yhat = new ArrayList<>();
             for (int i = trainLen; i < totalLen; i++) {
@@ -256,25 +211,14 @@ public class LstmForecastServiceImpl implements LstmForecastService {
         }
 
         try {
-            // 训练：仅用 train 部分拟合（单步回归：窗口 -> 下一天）
             double[] trainValues = Arrays.copyOfRange(arr, 0, trainLen);
 
-            // walk-forward：对 test 部分逐点预测（单步预测；使用真实历史窗口，不递归）
             MinMaxScaler scaler = MinMaxScaler.fit(trainValues);
             double[] scaledTrain = scaler.transform(trainValues);
             double[] scaledAll = scaler.transform(Arrays.copyOfRange(arr, 0, totalLen));
 
-            if (!LGBMBooster.isNativeLoaded()) {
-                try {
-                    LGBMBooster.loadNative();
-                } catch (Exception e) {
-                    throw new RuntimeException("LightGBM native load failed", e);
-                }
-            }
-
             int nTrainSamples = scaledTrain.length - seqLen;
             if (nTrainSamples < 2) {
-                // 训练集太短：直接用移动平均评估
                 List<Double> y = new ArrayList<>();
                 List<Double> yhat = new ArrayList<>();
                 for (int i = trainLen; i < totalLen; i++) {
@@ -284,53 +228,24 @@ public class LstmForecastServiceImpl implements LstmForecastService {
                 return new EvalPair(y, yhat, computeMetrics(y, yhat));
             }
 
-            int numRows = nTrainSamples;
-            int numFeatures = seqLen;
-            int numCols = numFeatures + 1; // 最后一列为 label
-            double[] trainData = new double[numRows * numCols];
-            for (int i = 0; i < numRows; i++) {
-                int base = i * numCols;
-                for (int t = 0; t < numFeatures; t++) {
-                    trainData[base + t] = scaledTrain[i + t];
+            MultiLayerNetwork net = fitModelOnScaled(scaledTrain, seqLen);
+
+            List<Double> y = new ArrayList<>();
+            List<Double> yhat = new ArrayList<>();
+            double[] window = new double[seqLen];
+            for (int i = trainLen; i < totalLen; i++) {
+                for (int t = 0; t < seqLen; t++) {
+                    window[t] = scaledAll[i - seqLen + t];
                 }
-                trainData[base + numFeatures] = scaledTrain[i + numFeatures];
+                double predScaled = lstmLastTimestepPrediction(net, window);
+                predScaled = clamp01(predScaled);
+                double pred = Math.max(0, scaler.inverse(predScaled));
+                y.add(arr[i]);
+                yhat.add(pred);
             }
-
-            int numLeaves = Math.max(2, Math.min(256, props.getHiddenUnits()));
-            String params = "objective=regression metric=l2 learning_rate=" + props.getLearningRate()
-                    + " num_leaves=" + numLeaves
-                    + " num_iterations=" + Math.max(1, props.getEpochs())
-                    + " verbosity=-1 seed=42";
-
-            try {
-                try (LGBMDataset dataset = LGBMDataset.createFromMat(trainData, numRows, numCols, true, "label", null);
-                     LGBMBooster booster = LGBMBooster.create(dataset, params)) {
-
-                    for (int i = 0; i < Math.max(1, props.getEpochs()); i++) {
-                        boolean cont = booster.updateOneIter();
-                        if (!cont) break;
-                    }
-
-                    List<Double> y = new ArrayList<>();
-                    List<Double> yhat = new ArrayList<>();
-                    double[] window = new double[seqLen];
-                    for (int i = trainLen; i < totalLen; i++) {
-                        for (int t = 0; t < seqLen; t++) {
-                            window[t] = scaledAll[i - seqLen + t];
-                        }
-                    double predScaled = predictForMatSingleRow(booster, window);
-                        predScaled = clamp01(predScaled);
-                        double pred = Math.max(0, scaler.inverse(predScaled));
-                        y.add(arr[i]);
-                        yhat.add(pred);
-                    }
-                    return new EvalPair(y, yhat, computeMetrics(y, yhat));
-                }
-            } catch (io.github.metarank.lightgbm4j.LGBMException e) {
-                throw new RuntimeException(e);
-            }
+            return new EvalPair(y, yhat, computeMetrics(y, yhat));
         } catch (Throwable t) {
-            log.debug("LightGBM 指标评估失败，使用移动平均: {}", t.getMessage());
+            log.debug("LSTM 指标评估失败，使用移动平均: {}", t.getMessage());
             List<Double> y = new ArrayList<>();
             List<Double> yhat = new ArrayList<>();
             for (int i = trainLen; i < totalLen; i++) {
@@ -341,9 +256,10 @@ public class LstmForecastServiceImpl implements LstmForecastService {
         }
     }
 
-    private org.deeplearning4j.nn.multilayer.MultiLayerNetwork fitModel(double[] values, int seqLen) {
-        MinMaxScaler scaler = MinMaxScaler.fit(values);
-        double[] scaled = scaler.transform(values);
+    /**
+     * 在已 Min-Max 缩放的序列上训练 LSTM；labels 与输入同长度，末位为「下一时刻」监督信号（与自回归推理一致）
+     */
+    private MultiLayerNetwork fitModelOnScaled(double[] scaled, int seqLen) {
         int nSamples = scaled.length - seqLen;
         INDArray input = Nd4j.create(nSamples, 1, seqLen);
         INDArray labels = Nd4j.create(nSamples, 1, seqLen);
@@ -354,8 +270,7 @@ public class LstmForecastServiceImpl implements LstmForecastService {
             }
         }
 
-        org.deeplearning4j.nn.multilayer.MultiLayerNetwork net =
-                new org.deeplearning4j.nn.multilayer.MultiLayerNetwork(buildLstmConfig());
+        MultiLayerNetwork net = new MultiLayerNetwork(buildLstmConfig());
         net.init();
 
         int totalSamples = (int) input.size(0);
@@ -364,18 +279,18 @@ public class LstmForecastServiceImpl implements LstmForecastService {
         }
         int valSamples = Math.max(1, (int) Math.round(totalSamples * 0.2));
         int trainSamples = Math.max(1, totalSamples - valSamples);
-        INDArray trainX = input.get(org.nd4j.linalg.indexing.NDArrayIndex.interval(0, trainSamples),
-                org.nd4j.linalg.indexing.NDArrayIndex.all(),
-                org.nd4j.linalg.indexing.NDArrayIndex.all());
-        INDArray trainY = labels.get(org.nd4j.linalg.indexing.NDArrayIndex.interval(0, trainSamples),
-                org.nd4j.linalg.indexing.NDArrayIndex.all(),
-                org.nd4j.linalg.indexing.NDArrayIndex.all());
-        INDArray valX = input.get(org.nd4j.linalg.indexing.NDArrayIndex.interval(trainSamples, totalSamples),
-                org.nd4j.linalg.indexing.NDArrayIndex.all(),
-                org.nd4j.linalg.indexing.NDArrayIndex.all());
-        INDArray valY = labels.get(org.nd4j.linalg.indexing.NDArrayIndex.interval(trainSamples, totalSamples),
-                org.nd4j.linalg.indexing.NDArrayIndex.all(),
-                org.nd4j.linalg.indexing.NDArrayIndex.all());
+        INDArray trainX = input.get(NDArrayIndex.interval(0, trainSamples),
+                NDArrayIndex.all(),
+                NDArrayIndex.all());
+        INDArray trainY = labels.get(NDArrayIndex.interval(0, trainSamples),
+                NDArrayIndex.all(),
+                NDArrayIndex.all());
+        INDArray valX = input.get(NDArrayIndex.interval(trainSamples, totalSamples),
+                NDArrayIndex.all(),
+                NDArrayIndex.all());
+        INDArray valY = labels.get(NDArrayIndex.interval(trainSamples, totalSamples),
+                NDArrayIndex.all(),
+                NDArrayIndex.all());
 
         double bestVal = Double.POSITIVE_INFINITY;
         int noImprove = 0;
@@ -395,7 +310,7 @@ public class LstmForecastServiceImpl implements LstmForecastService {
         return net;
     }
 
-    private static double mseOn(INDArray x, INDArray y, org.deeplearning4j.nn.multilayer.MultiLayerNetwork net) {
+    private static double mseOn(INDArray x, INDArray y, MultiLayerNetwork net) {
         if (x == null || y == null || x.isEmpty() || y.isEmpty()) return Double.POSITIVE_INFINITY;
         INDArray out = net.output(x);
         INDArray diff = out.sub(y);
