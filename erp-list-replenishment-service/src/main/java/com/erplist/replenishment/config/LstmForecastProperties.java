@@ -49,5 +49,20 @@ public class LstmForecastProperties {
      * 早停：最小改善幅度
      */
     private double earlyStopMinDelta = 1e-4;
+
+    /**
+     * 是否启用 3σ（kσ）Winsorize 预处理（在 Min-Max 之前）
+     */
+    private boolean sigmaClipEnabled = true;
+
+    /**
+     * σ 倍数，默认 3 即 3σ 准则
+     */
+    private double sigmaMultiplier = 3.0;
+
+    /**
+     * 参与估计 μ、σ 的最少样本点数；不足则跳过该预处理
+     */
+    private int sigmaMinSamples = 8;
 }
 

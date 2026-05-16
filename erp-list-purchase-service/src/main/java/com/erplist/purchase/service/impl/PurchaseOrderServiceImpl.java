@@ -1,6 +1,7 @@
 package com.erplist.purchase.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.erplist.common.exception.BusinessException;
 import com.erplist.common.utils.UserContext;
@@ -76,19 +77,11 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         insertStatusLog(order.getId(), order.getPurchaseNo(), null, order.getPurchaseStatus(), "创建采购单");
 
         if (dto.getItems() != null && !dto.getItems().isEmpty()) {
-            for (PurchaseItemDTO itemDto : dto.getItems()) {
-                PurchaseItem item = new PurchaseItem();
-                BeanUtils.copyProperties(itemDto, item);
-                item.setPurchaseId(order.getId());
-                item.setPurchaseNo(order.getPurchaseNo());
-                item.setZid(zid);
-                item.setSid(sid);
-                item.setArrivalQuantity(item.getArrivalQuantity() != null ? item.getArrivalQuantity() : 0);
-                if (item.getTotalPrice() == null && item.getPurchasePrice() != null && item.getPurchaseQuantity() != null) {
-                    item.setTotalPrice(item.getPurchasePrice().multiply(BigDecimal.valueOf(item.getPurchaseQuantity())));
-                }
-                purchaseItemMapper.insert(item);
+            BigDecimal total = appendPurchaseItemSnapshot(order, sid, zid, dto.getItems());
+            if (order.getTotalAmount() == null) {
+                order.setTotalAmount(total);
             }
+            purchaseOrderMapper.updateById(order);
         }
         return order;
     }
@@ -109,8 +102,12 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         if (order != null) {
             ensureSameZid(order.getZid());
         }
+        long snapshotMinId = resolveItemSnapshotMinId(order);
         LambdaQueryWrapper<PurchaseItem> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(PurchaseItem::getPurchaseId, purchaseId).orderByAsc(PurchaseItem::getId);
+        wrapper.eq(PurchaseItem::getPurchaseId, purchaseId)
+                .ge(PurchaseItem::getId, snapshotMinId)
+                .gt(PurchaseItem::getPurchaseQuantity, 0)
+                .orderByAsc(PurchaseItem::getId);
         return purchaseItemMapper.selectList(wrapper);
     }
 
@@ -122,19 +119,44 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             throw new BusinessException("采购单不存在");
         }
         ensureSameZid(order.getZid());
+        if (order.getPurchaseStatus() != null && order.getPurchaseStatus() == 5) {
+            throw new BusinessException("已取消的采购单不可编辑");
+        }
         Integer oldStatus = order.getPurchaseStatus();
-        BeanUtils.copyProperties(dto, order, "id", "purchaseNo", "createTime");
-        if (order.getSupplierName() == null && order.getSupplierId() != null) {
+        String zid = order.getZid();
+        Long sid = dto.getSid() != null ? dto.getSid() : order.getSid();
+
+        BeanUtils.copyProperties(dto, order, "id", "purchaseNo", "createTime", "purchaseStatus",
+                "approveTime", "approverId", "approverName", "items", "itemSnapshotMinId");
+        order.setSid(sid);
+        if (order.getSupplierId() != null) {
             Supplier supplier = supplierMapper.selectById(order.getSupplierId());
             if (supplier != null) {
                 order.setSupplierName(supplier.getSupplierName());
             }
         }
-        Integer newStatus = order.getPurchaseStatus();
-        if (newStatus != null && !newStatus.equals(oldStatus)) {
-            insertStatusLog(order.getId(), order.getPurchaseNo(), oldStatus, newStatus, "更新采购单状态");
+
+        if (dto.getItems() != null) {
+            order.setTotalAmount(appendPurchaseItemSnapshot(order, sid, zid, dto.getItems()));
+        } else if (dto.getTotalAmount() != null) {
+            order.setTotalAmount(dto.getTotalAmount());
+        }
+
+        order.setPurchaseStatus(0);
+        order.setApproveTime(null);
+        order.setApproverId(null);
+        order.setApproverName(null);
+
+        if (oldStatus == null || !oldStatus.equals(0)) {
+            insertStatusLog(order.getId(), order.getPurchaseNo(), oldStatus, 0, "编辑采购单，重新进入待审核");
         }
         purchaseOrderMapper.updateById(order);
+        LambdaUpdateWrapper<PurchaseOrder> clearApprove = new LambdaUpdateWrapper<>();
+        clearApprove.eq(PurchaseOrder::getId, id)
+                .set(PurchaseOrder::getApproveTime, null)
+                .set(PurchaseOrder::getApproverId, null)
+                .set(PurchaseOrder::getApproverName, null);
+        purchaseOrderMapper.update(null, clearApprove);
         return order;
     }
 
@@ -178,11 +200,19 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         if (result.getRecords() != null && !result.getRecords().isEmpty()) {
             List<Long> purchaseIds = result.getRecords().stream().map(PurchaseOrder::getId).collect(Collectors.toList());
             LambdaQueryWrapper<PurchaseItem> itemWrapper = new LambdaQueryWrapper<>();
-            itemWrapper.in(PurchaseItem::getPurchaseId, purchaseIds).orderByAsc(PurchaseItem::getPurchaseId).orderByAsc(PurchaseItem::getId);
+            itemWrapper.in(PurchaseItem::getPurchaseId, purchaseIds)
+                    .gt(PurchaseItem::getPurchaseQuantity, 0)
+                    .orderByAsc(PurchaseItem::getPurchaseId).orderByAsc(PurchaseItem::getId);
             List<PurchaseItem> allItems = purchaseItemMapper.selectList(itemWrapper);
+            Map<Long, Long> snapshotMinByOrderId = result.getRecords().stream()
+                    .collect(Collectors.toMap(PurchaseOrder::getId, this::resolveItemSnapshotMinId, (a, b) -> a));
             Map<Long, Long> purchaseIdToProductId = new LinkedHashMap<>();
             if (allItems != null) {
                 for (PurchaseItem i : allItems) {
+                    Long minId = snapshotMinByOrderId.get(i.getPurchaseId());
+                    if (minId != null && i.getId() < minId) {
+                        continue;
+                    }
                     purchaseIdToProductId.putIfAbsent(i.getPurchaseId(), i.getProductId());
                 }
             }
@@ -302,6 +332,61 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         LambdaQueryWrapper<PurchaseStatusLog> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(PurchaseStatusLog::getPurchaseId, purchaseId).orderByAsc(PurchaseStatusLog::getCreateTime);
         return purchaseStatusLogMapper.selectList(wrapper);
+    }
+
+    private long resolveItemSnapshotMinId(PurchaseOrder order) {
+        if (order == null || order.getItemSnapshotMinId() == null) {
+            return 0L;
+        }
+        return order.getItemSnapshotMinId();
+    }
+
+    /**
+     * 仅 INSERT 新明细批次（适配 purchase_item 无 UPDATE/DELETE 权限的库账号），
+     * 并通过 purchase_order.item_snapshot_min_id 指向当前有效批次。
+     */
+    private BigDecimal appendPurchaseItemSnapshot(PurchaseOrder order, Long sid, String zid, List<PurchaseItemDTO> itemDtos) {
+        Long purchaseId = order.getId();
+        Long snapshotMinId = null;
+        BigDecimal total = BigDecimal.ZERO;
+
+        for (PurchaseItemDTO itemDto : itemDtos) {
+            if (itemDto == null || !StringUtils.hasText(itemDto.getProductName())) {
+                continue;
+            }
+            Integer qty = itemDto.getPurchaseQuantity();
+            if (qty == null || qty <= 0) {
+                continue;
+            }
+            BigDecimal lineTotal = itemDto.getTotalPrice();
+            if (lineTotal == null && itemDto.getPurchasePrice() != null) {
+                lineTotal = itemDto.getPurchasePrice().multiply(BigDecimal.valueOf(qty));
+            }
+            if (lineTotal != null) {
+                total = total.add(lineTotal);
+            }
+
+            PurchaseItem item = new PurchaseItem();
+            BeanUtils.copyProperties(itemDto, item, "id");
+            item.setPurchaseId(purchaseId);
+            item.setPurchaseNo(order.getPurchaseNo());
+            item.setZid(zid);
+            item.setSid(sid);
+            if (item.getProductId() == null) {
+                item.setProductId(0L);
+            }
+            item.setArrivalQuantity(item.getArrivalQuantity() != null ? item.getArrivalQuantity() : 0);
+            item.setTotalPrice(lineTotal);
+            purchaseItemMapper.insert(item);
+            if (snapshotMinId == null || item.getId() < snapshotMinId) {
+                snapshotMinId = item.getId();
+            }
+        }
+
+        if (snapshotMinId != null) {
+            order.setItemSnapshotMinId(snapshotMinId);
+        }
+        return total;
     }
 
     private void insertStatusLog(Long purchaseId, String purchaseNo, Integer oldStatus, Integer newStatus, String remark) {

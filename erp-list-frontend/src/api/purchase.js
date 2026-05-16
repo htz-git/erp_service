@@ -42,8 +42,27 @@ export const purchaseApi = {
     return request.put(`/purchases/${id}/approve`)
   },
 
-  /** 供应商列表，用于补货页选供应商 */
   querySuppliers(params) {
     return request.get('/suppliers', { params })
+  },
+
+  getSupplierById(id) {
+    return request.get(`/suppliers/${id}`)
+  },
+
+  createSupplier(data) {
+    return request.post('/suppliers', data)
+  },
+
+  updateSupplier(id, data) {
+    return request.put(`/suppliers/${id}`, data)
+  },
+
+  deleteSupplier(id) {
+    return request.delete(`/suppliers/${id}`)
+  },
+
+  updateSupplierStatus(id, status) {
+    return request.put(`/suppliers/${id}/status`, null, { params: { status } })
   }
 }

@@ -4,6 +4,7 @@
       <template #header>
         <div class="card-header">
           <span>采购管理</span>
+          <el-button type="primary" link @click="$router.push('/purchase/suppliers')">供应商管理</el-button>
         </div>
       </template>
 
@@ -13,8 +14,22 @@
           <el-form-item label="采购单号">
             <el-input v-model="filterForm.purchaseNo" placeholder="采购单号" clearable style="width: 160px" />
           </el-form-item>
-          <el-form-item label="供应商ID">
-            <el-input v-model.number="filterForm.supplierId" placeholder="供应商ID" clearable style="width: 110px" />
+          <el-form-item label="供应商">
+            <el-select
+              v-model="filterForm.supplierId"
+              placeholder="全部供应商"
+              clearable
+              filterable
+              style="width: 180px"
+              :loading="supplierOptionsLoading"
+            >
+              <el-option
+                v-for="s in supplierOptions"
+                :key="s.id"
+                :label="s.supplierName || `供应商 ${s.id}`"
+                :value="s.id"
+              />
+            </el-select>
           </el-form-item>
           <el-form-item label="店铺">
             <el-select
@@ -85,9 +100,15 @@
           <el-table-column prop="purchaserName" label="采购员" width="100" />
           <el-table-column prop="expectedArrivalTime" label="预计到货" min-width="170" />
           <el-table-column prop="createTime" label="创建时间" min-width="170" />
-          <el-table-column label="操作" width="120" fixed="right">
+          <el-table-column label="操作" width="180" fixed="right">
             <template #default="{ row }">
               <el-button type="primary" link @click="$router.push('/purchase/detail/' + row.id)">详情</el-button>
+              <el-button
+                v-if="row.purchaseStatus !== 5"
+                type="primary"
+                link
+                @click="$router.push('/purchase/edit/' + row.id)"
+              >编辑</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -176,8 +197,19 @@
               </el-timeline-item>
             </el-timeline>
           </div>
-          <div v-if="detail.order.purchaseStatus === 0" class="detail-actions">
-            <el-button type="primary" :loading="approving" @click="approveOrder">审核通过</el-button>
+          <div class="detail-actions">
+            <el-button
+              v-if="detail.order.purchaseStatus !== 5"
+              type="primary"
+              plain
+              @click="$router.push('/purchase/edit/' + detail.order.id)"
+            >编辑</el-button>
+            <el-button
+              v-if="detail.order.purchaseStatus === 0"
+              type="primary"
+              :loading="approving"
+              @click="approveOrder"
+            >审核通过</el-button>
           </div>
         </template>
       </div>
@@ -200,6 +232,8 @@ const loading = ref(false)
 const list = ref([])
 const shopOptions = ref([])
 const shopOptionsLoading = ref(false)
+const supplierOptions = ref([])
+const supplierOptionsLoading = ref(false)
 const detailVisible = ref(false)
 const detailLoading = ref(false)
 const approving = ref(false)
@@ -318,6 +352,18 @@ function handleReset() {
   fetchList()
 }
 
+async function loadSupplierOptions() {
+  supplierOptionsLoading.value = true
+  try {
+    const res = await purchaseApi.querySuppliers({ pageNum: 1, pageSize: 500 })
+    supplierOptions.value = res.data?.records ?? []
+  } catch {
+    supplierOptions.value = []
+  } finally {
+    supplierOptionsLoading.value = false
+  }
+}
+
 async function loadShopOptions() {
   const zid = currentZid.value
   if (zid == null || zid === '') {
@@ -337,13 +383,14 @@ async function loadShopOptions() {
 
 onMounted(() => {
   loadShopOptions()
+  loadSupplierOptions()
   fetchList()
 })
 </script>
 
 <style scoped>
 .purchase-list-page { padding: 20px; }
-.card-header { font-size: 18px; font-weight: bold; }
+.card-header { display: flex; align-items: center; justify-content: space-between; font-size: 18px; font-weight: bold; }
 .filter-section { margin-bottom: 16px; }
 .filter-form { margin: 0; }
 .table-section { margin-top: 12px; }
@@ -358,7 +405,7 @@ onMounted(() => {
 .detail-info p { margin: 6px 0; }
 .sub-title { font-weight: bold; margin-bottom: 8px; }
 .detail-items { margin-bottom: 16px; }
-.detail-actions { margin-top: 16px; }
+.detail-actions { margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap; }
 
 .purchase-list-product-img { width: 48px; height: 48px; border-radius: 4px; object-fit: cover; }
 .purchase-list-img-placeholder { width: 48px; height: 48px; border-radius: 4px; background: var(--el-fill-color-light); display: flex; align-items: center; justify-content: center; color: var(--el-text-color-placeholder); }

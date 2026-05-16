@@ -7,6 +7,11 @@
             <el-icon><ArrowLeft /></el-icon> 返回列表
           </el-button>
           <span class="title">采购单详情</span>
+          <el-button
+            v-if="detail.order && detail.order.purchaseStatus !== 5"
+            type="primary"
+            @click="$router.push('/purchase/edit/' + detail.order.id)"
+          >编辑</el-button>
         </div>
       </template>
       <template v-if="detail.order">
@@ -93,6 +98,6 @@ watch(() => route.params.id, fetchDetail)
 <style scoped>
 .purchase-detail-page { padding: 20px; }
 .card-header { display: flex; align-items: center; gap: 12px; }
-.card-header .title { font-size: 18px; font-weight: bold; }
+.card-header .title { font-size: 18px; font-weight: bold; flex: 1; }
 .sub-title { margin: 20px 0 8px; font-weight: bold; }
 </style>

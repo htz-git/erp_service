@@ -180,6 +180,18 @@ const routes = [
         meta: { title: '新增采购单', icon: 'ShoppingCart' }
       },
       {
+        path: 'edit/:id',
+        name: 'PurchaseEdit',
+        component: () => import('@/views/purchase/PurchaseCreate.vue'),
+        meta: { title: '编辑采购单', icon: 'ShoppingCart' }
+      },
+      {
+        path: 'suppliers',
+        name: 'SupplierList',
+        component: () => import('@/views/purchase/SupplierList.vue'),
+        meta: { title: '供应商管理', icon: 'ShoppingCart' }
+      },
+      {
         path: 'detail/:id',
         name: 'PurchaseDetail',
         component: () => import('@/views/purchase/PurchaseDetail.vue'),

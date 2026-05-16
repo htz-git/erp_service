@@ -33,6 +33,8 @@ public class PurchaseOrder {
     private LocalDateTime expectedArrivalTime;
     private LocalDateTime arrivalTime;
     private String remark;
+    /** 当前有效采购明细快照起始 ID（编辑时仅追加明细，通过此字段屏蔽历史行） */
+    private Long itemSnapshotMinId;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
     @TableLogic

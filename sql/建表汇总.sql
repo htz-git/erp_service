@@ -349,6 +349,7 @@ CREATE TABLE IF NOT EXISTS `purchase_order` (
   `expected_arrival_time` DATETIME DEFAULT NULL COMMENT '预计到货时间',
   `arrival_time` DATETIME DEFAULT NULL COMMENT '实际到货时间',
   `remark` VARCHAR(500) DEFAULT NULL COMMENT '备注',
+  `item_snapshot_min_id` BIGINT DEFAULT NULL COMMENT '当前有效采购明细最小ID（含）',
   `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `deleted` TINYINT DEFAULT 0 COMMENT '逻辑删除：0-未删除，1-已删除',

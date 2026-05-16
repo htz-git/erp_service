@@ -5,6 +5,7 @@ import com.erplist.replenishment.dto.ForecastMetricsDTO;
 import com.erplist.replenishment.dto.ForecastMetricsItemDTO;
 import com.erplist.replenishment.dto.ForecastMetricsResultDTO;
 import com.erplist.replenishment.service.LstmForecastService;
+import com.erplist.replenishment.support.SigmaWinsorizer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
@@ -55,6 +56,8 @@ public class LstmForecastServiceImpl implements LstmForecastService {
             return repeat(Math.max(0, avg), forecastDays);
         }
         double[] arr = values.stream().mapToDouble(Double::doubleValue).toArray();
+        arr = SigmaWinsorizer.winsorizeFullSeries(arr, props.isSigmaClipEnabled(),
+                props.getSigmaMultiplier(), props.getSigmaMinSamples());
         int seqLen = Math.min(props.getTimeSteps(), arr.length - 1);
         if (seqLen < 2) {
             double avg = Arrays.stream(arr).average().orElse(0);
@@ -211,11 +214,14 @@ public class LstmForecastServiceImpl implements LstmForecastService {
         }
 
         try {
-            double[] trainValues = Arrays.copyOfRange(arr, 0, trainLen);
+            // 仅用训练段估计 μ、σ，再 Winsorize 全序列供模型输入；真实 y 仍用原始 arr
+            double[] arrForModel = SigmaWinsorizer.winsorizeUsingTrainHead(arr, trainLen,
+                    props.isSigmaClipEnabled(), props.getSigmaMultiplier(), props.getSigmaMinSamples());
+            double[] trainValues = Arrays.copyOfRange(arrForModel, 0, trainLen);
 
             MinMaxScaler scaler = MinMaxScaler.fit(trainValues);
             double[] scaledTrain = scaler.transform(trainValues);
-            double[] scaledAll = scaler.transform(Arrays.copyOfRange(arr, 0, totalLen));
+            double[] scaledAll = scaler.transform(Arrays.copyOfRange(arrForModel, 0, totalLen));
 
             int nTrainSamples = scaledTrain.length - seqLen;
             if (nTrainSamples < 2) {

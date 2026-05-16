@@ -45,6 +45,10 @@ replenishment:
     early-stop-min-delta: 1.0e-4
     min-history-len: 5
     max-forecast-days: 30
+    # 3σ Winsorize：异常值压回 [mean−kσ, mean+kσ]，不足 sigma-min-samples 点则跳过
+    sigma-clip-enabled: true
+    sigma-multiplier: 3.0
+    sigma-min-samples: 8
   suggestion:
     history-days: 30
     forecast-days: 7

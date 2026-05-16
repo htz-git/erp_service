@@ -1,12 +1,14 @@
 <template>
-  <div class="page purchase-create-page">
+  <div class="page purchase-create-page" v-loading="pageLoading">
     <div class="page-header">
       <el-button type="primary" link class="back-btn" @click="goBack">
         <el-icon><ArrowLeft /></el-icon>
         返回采购列表
       </el-button>
-      <h1 class="page-title">新增采购单</h1>
-      <p class="page-desc">选择供应商与店铺，填写采购明细，提交后进入待审核状态。</p>
+      <h1 class="page-title">{{ isEdit ? '编辑采购单' : '新增采购单' }}</h1>
+      <p class="page-desc">
+        {{ isEdit ? '修改后采购单将重新进入待审核状态。' : '选择供应商与店铺，填写采购明细，提交后进入待审核状态。' }}
+      </p>
     </div>
 
     <el-card class="form-card" shadow="hover">
@@ -122,7 +124,7 @@
 
     <div class="form-actions">
       <el-button type="primary" size="large" :loading="submitLoading" @click="handleSubmit">
-        提交创建
+        {{ isEdit ? '保存修改' : '提交创建' }}
       </el-button>
       <el-button size="large" @click="goBack">取消</el-button>
     </div>
@@ -131,16 +133,22 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft, Plus } from '@element-plus/icons-vue'
 import { useUserStore } from '@/store/user'
 import { purchaseApi } from '@/api/purchase'
 import { sellerApi } from '@/api/seller'
 
+const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const currentZid = computed(() => userStore.currentZid())
+
+const isEdit = computed(() => route.name === 'PurchaseEdit' && !!route.params.id)
+const editId = computed(() => (isEdit.value ? Number(route.params.id) : null))
+
+const pageLoading = ref(false)
 
 const formRef = ref(null)
 const submitLoading = ref(false)
@@ -161,6 +169,9 @@ const rules = {
 
 function defaultItemRow() {
   return {
+    id: null,
+    productId: null,
+    skuId: null,
     productName: '',
     skuCode: '',
     purchasePrice: 0,
@@ -199,7 +210,7 @@ function goBack() {
 async function loadSuppliers() {
   supplierLoading.value = true
   try {
-    const res = await purchaseApi.querySuppliers({ pageNum: 1, pageSize: 500 })
+    const res = await purchaseApi.querySuppliers({ pageNum: 1, pageSize: 500, status: 1 })
     supplierOptions.value = res?.data?.records ?? res?.data ?? []
   } catch {
     supplierOptions.value = []
@@ -225,6 +236,43 @@ async function loadShops() {
   }
 }
 
+async function loadPurchaseForEdit() {
+  if (!editId.value) return
+  pageLoading.value = true
+  try {
+    const res = await purchaseApi.getPurchaseOrderDetail(editId.value)
+    const data = res?.data ?? res
+    const order = data.order ?? data
+    if (order.purchaseStatus === 5) {
+      ElMessage.warning('已取消的采购单不可编辑')
+      router.replace('/purchase/list')
+      return
+    }
+    form.supplierId = order.supplierId
+    form.sid = order.sid
+    form.remark = order.remark ?? ''
+    const items = data.items ?? []
+    if (items.length > 0) {
+      itemRows.value = items
+        .filter((i) => (Number(i.purchaseQuantity) || 0) > 0)
+        .map((i) => ({
+          id: i.id,
+          productId: i.productId,
+          skuId: i.skuId,
+          productName: i.productName ?? '',
+          skuCode: i.skuCode ?? '',
+          purchasePrice: Number(i.purchasePrice) || 0,
+          purchaseQuantity: Number(i.purchaseQuantity) || 1
+        }))
+    }
+  } catch (e) {
+    ElMessage.error(e.message || '加载采购单失败')
+    router.push('/purchase/list')
+  } finally {
+    pageLoading.value = false
+  }
+}
+
 async function handleSubmit() {
   if (!formRef.value) return
   await formRef.value.validate(async (valid) => {
@@ -244,21 +292,32 @@ async function handleSubmit() {
     submitLoading.value = true
     try {
       const items = rows.map((r) => ({
+        ...(isEdit.value && r.id != null ? { id: r.id } : {}),
+        productId: r.productId ?? 0,
+        skuId: r.skuId ?? undefined,
         productName: r.productName?.trim() || '',
         skuCode: r.skuCode?.trim() || undefined,
         purchasePrice: Number(r.purchasePrice) || 0,
         purchaseQuantity: Number(r.purchaseQuantity) || 1,
         totalPrice: (Number(r.purchasePrice) || 0) * (Number(r.purchaseQuantity) || 1)
       }))
-      await purchaseApi.createPurchaseOrder({
+      const payload = {
         supplierId: form.supplierId,
         sid: form.sid || undefined,
         totalAmount: total,
-        purchaseStatus: 0,
         remark: form.remark?.trim() || undefined,
         items
-      })
-      ElMessage.success('采购单创建成功')
+      }
+      if (isEdit.value) {
+        await purchaseApi.updatePurchaseOrder(editId.value, payload)
+        ElMessage.success('已保存，采购单已重新进入待审核')
+      } else {
+        await purchaseApi.createPurchaseOrder({
+          ...payload,
+          purchaseStatus: 0
+        })
+        ElMessage.success('采购单创建成功')
+      }
       router.push('/purchase/list')
     } catch (e) {
       ElMessage.error(e?.response?.data?.message || e?.message || '创建失败')
@@ -268,9 +327,11 @@ async function handleSubmit() {
   })
 }
 
-onMounted(() => {
-  loadSuppliers()
-  loadShops()
+onMounted(async () => {
+  await Promise.all([loadSuppliers(), loadShops()])
+  if (isEdit.value) {
+    await loadPurchaseForEdit()
+  }
 })
 </script>
 
