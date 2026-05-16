@@ -303,6 +303,10 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         return createPurchaseOrder(dto);
     }
 
+    /**
+     * 采购状态推进：待审核(0)→已审核(1)→采购中(2)→部分到货(3)→已完成(4)。
+     * 每次调用前进一档；0→1 时记录审核人、审核时间。已取消(5)或已完成(4)不可再推进。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void approvePurchaseOrder(Long id) {
@@ -311,16 +315,42 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             throw new BusinessException("采购单不存在");
         }
         ensureSameZid(order.getZid());
-        if (order.getPurchaseStatus() == null || order.getPurchaseStatus() != 0) {
-            throw new BusinessException("仅待审核状态的采购单可审核通过");
+        Integer st = order.getPurchaseStatus() != null ? order.getPurchaseStatus() : 0;
+        if (st == 5) {
+            throw new BusinessException("已取消的采购单不可推进状态");
         }
-        Integer oldStatus = order.getPurchaseStatus();
-        order.setPurchaseStatus(1);
-        order.setApproveTime(LocalDateTime.now());
-        order.setApproverId(UserContext.getUserId());
-        order.setApproverName(null);
+        if (st >= 4) {
+            throw new BusinessException("当前已是终态（已完成），无法继续推进");
+        }
+        int next = st + 1;
+        Integer oldStatus = st;
+        order.setPurchaseStatus(next);
+        if (st == 0) {
+            order.setApproveTime(LocalDateTime.now());
+            order.setApproverId(UserContext.getUserId());
+            order.setApproverName(null);
+        }
         purchaseOrderMapper.updateById(order);
-        insertStatusLog(order.getId(), order.getPurchaseNo(), oldStatus, 1, "审核通过");
+        insertStatusLog(order.getId(), order.getPurchaseNo(), oldStatus, next, advanceStatusLogRemark(oldStatus, next));
+    }
+
+    private static String advanceStatusLogRemark(int from, int to) {
+        if (from == 0 && to == 1) {
+            return "审核通过：待审核 → 已审核";
+        }
+        return "流程推进：" + purchaseStatusLabel(from) + " → " + purchaseStatusLabel(to);
+    }
+
+    private static String purchaseStatusLabel(int status) {
+        switch (status) {
+            case 0: return "待审核";
+            case 1: return "已审核";
+            case 2: return "采购中";
+            case 3: return "部分到货";
+            case 4: return "已完成";
+            case 5: return "已取消";
+            default: return String.valueOf(status);
+        }
     }
 
     @Override

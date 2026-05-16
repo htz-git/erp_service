@@ -19,6 +19,9 @@ public interface PurchaseOrderService {
 
     PurchaseOrder createPurchaseOrderFromSuggestions(CreatePurchaseFromSuggestionsRequest request);
 
+    /**
+     * 将采购单状态向前推进一档（0→1→2→3→4），与 PUT /{id}/approve 对应。
+     */
     void approvePurchaseOrder(Long id);
 
     PurchaseOrder getPurchaseOrderById(Long id);

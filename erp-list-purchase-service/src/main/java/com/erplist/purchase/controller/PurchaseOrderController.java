@@ -39,6 +39,7 @@ public class PurchaseOrderController {
         return Result.success(order);
     }
 
+    /** 采购状态每次前进一档：0→1→2→3→4（待审核直至已完成） */
     @PutMapping("/{id}/approve")
     public Result<Void> approvePurchaseOrder(@PathVariable Long id) {
         purchaseOrderService.approvePurchaseOrder(id);

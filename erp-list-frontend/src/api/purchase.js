@@ -38,6 +38,7 @@ export const purchaseApi = {
     return request.post('/purchases/from-suggestions', data)
   },
 
+  /** 状态推进：待审核→已审核→采购中→部分到货→已完成（每次调用前进一档） */
   approvePurchaseOrder(id) {
     return request.put(`/purchases/${id}/approve`)
   },

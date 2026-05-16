@@ -100,7 +100,7 @@
           <el-table-column prop="purchaserName" label="采购员" width="100" />
           <el-table-column prop="expectedArrivalTime" label="预计到货" min-width="170" />
           <el-table-column prop="createTime" label="创建时间" min-width="170" />
-          <el-table-column label="操作" width="180" fixed="right">
+          <el-table-column label="操作" width="220" fixed="right">
             <template #default="{ row }">
               <el-button type="primary" link @click="$router.push('/purchase/detail/' + row.id)">详情</el-button>
               <el-button
@@ -109,6 +109,12 @@
                 link
                 @click="$router.push('/purchase/edit/' + row.id)"
               >编辑</el-button>
+              <el-button
+                v-if="canAdvancePurchaseStatus(row.purchaseStatus)"
+                type="success"
+                link
+                @click="advanceOrderFromRow(row)"
+              >推进状态</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -139,10 +145,10 @@
       <div v-loading="detailLoading" class="detail-body">
         <template v-if="detail.order">
           <el-steps :active="detailStepActive" finish-status="success" align-center class="detail-steps">
-            <el-step title="补货审核" />
-            <el-step title="审核通过" />
+            <el-step title="待审核" />
+            <el-step title="已审核" />
             <el-step title="采购中" />
-            <el-step title="发货" />
+            <el-step title="部分到货" />
             <el-step title="已完成" />
           </el-steps>
           <div class="detail-info">
@@ -205,11 +211,11 @@
               @click="$router.push('/purchase/edit/' + detail.order.id)"
             >编辑</el-button>
             <el-button
-              v-if="detail.order.purchaseStatus === 0"
-              type="primary"
+              v-if="canAdvancePurchaseStatus(detail.order.purchaseStatus)"
+              type="success"
               :loading="approving"
-              @click="approveOrder"
-            >审核通过</el-button>
+              @click="advanceOrder"
+            >{{ advanceButtonText(detail.order.purchaseStatus) }}</el-button>
           </div>
         </template>
       </div>
@@ -220,7 +226,7 @@
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { Picture } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/store/user'
 import { purchaseApi } from '@/api/purchase'
 import { sellerApi } from '@/api/seller'
@@ -258,11 +264,25 @@ function purchaseStatusText(v) {
   return v != null ? (purchaseStatusMap[v] ?? String(v)) : '-'
 }
 
-// 步骤条：0→第1步，1→第2步，…；已取消(5)不展示在步骤条，按 0 处理
+function canAdvancePurchaseStatus(st) {
+  return st != null && st >= 0 && st < 4 && st !== 5
+}
+
+function nextPurchaseStatusText(st) {
+  if (!canAdvancePurchaseStatus(st)) return ''
+  return purchaseStatusMap[st + 1] ?? ''
+}
+
+function advanceButtonText(st) {
+  const next = nextPurchaseStatusText(st)
+  return next ? `确认推进到「${next}」` : '推进状态'
+}
+
+// 步骤条：status 0~4 对应 active 0~4（与 el-step 顺序一致）
 const detailStepActive = computed(() => {
   const status = detail.value.order?.purchaseStatus
   if (status == null || status === 5) return 0
-  if (status >= 0 && status <= 4) return status + 1
+  if (status >= 0 && status <= 4) return status
   return 0
 })
 
@@ -286,18 +306,51 @@ async function openDetail(id) {
   }
 }
 
-async function approveOrder() {
+async function advanceOrder() {
   const id = detail.value.order?.id
-  if (!id) return
+  const st = detail.value.order?.purchaseStatus
+  if (!id || !canAdvancePurchaseStatus(st)) return
+  const nextLabel = nextPurchaseStatusText(st)
+  try {
+    await ElMessageBox.confirm(
+      `确认将采购单推进到「${nextLabel}」？`,
+      '状态推进',
+      { confirmButtonText: '确认', cancelButtonText: '取消', type: 'warning' }
+    )
+  } catch {
+    return
+  }
   approving.value = true
   try {
     await purchaseApi.approvePurchaseOrder(id)
-    ElMessage.success('已审核通过')
+    ElMessage.success(`已推进到「${nextLabel}」`)
     await openDetail(id)
+    await fetchList()
   } catch (e) {
-    ElMessage.error(e.message || '审核失败')
+    ElMessage.error(e?.response?.data?.message || e.message || '操作失败')
   } finally {
     approving.value = false
+  }
+}
+
+async function advanceOrderFromRow(row) {
+  if (!row?.id || !canAdvancePurchaseStatus(row.purchaseStatus)) return
+  const nextLabel = nextPurchaseStatusText(row.purchaseStatus)
+  try {
+    await ElMessageBox.confirm(
+      `确认将采购单「${row.purchaseNo}」推进到「${nextLabel}」？`,
+      '状态推进',
+      { confirmButtonText: '确认', cancelButtonText: '取消', type: 'warning' }
+    )
+  } catch {
+    return
+  }
+  try {
+    await purchaseApi.approvePurchaseOrder(row.id)
+    ElMessage.success(`已推进到「${nextLabel}」`)
+    await fetchList()
+  } catch (e) {
+    ElMessage.error(e?.response?.data?.message || e.message || '操作失败')
   }
 }
 
