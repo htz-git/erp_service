@@ -113,9 +113,10 @@ public class SellerServiceImpl implements SellerService {
         Page<Seller> page = new Page<>(queryDTO.getPageNum(), queryDTO.getPageSize());
         LambdaQueryWrapper<Seller> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Seller::getZid, zid);
-        Long userId = queryDTO.getUserId() != null ? queryDTO.getUserId() : UserContext.getUserId();
-        if (userId != null) {
-            wrapper.eq(Seller::getUserId, userId);
+        // 同公司子账号应看到本公司全部店铺：默认不按 seller.user_id 过滤。
+        // 仅当请求显式传入 userId 时（如店铺管理页筛选归属人）再按归属用户过滤。
+        if (queryDTO.getUserId() != null) {
+            wrapper.eq(Seller::getUserId, queryDTO.getUserId());
         }
         if (StringUtils.hasText(queryDTO.getSellerName())) {
             wrapper.like(Seller::getSellerName, queryDTO.getSellerName());

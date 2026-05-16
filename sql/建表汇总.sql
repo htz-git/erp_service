@@ -332,6 +332,7 @@ CREATE TABLE IF NOT EXISTS `supplier` (
   KEY `idx_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='供应商表';
 
+-- purchase_order 已含 item_snapshot_min_id（编辑采购单时仅追加明细、用该列指向当前有效批次）；全新建库无需再执行下方「采购增量」
 CREATE TABLE IF NOT EXISTS `purchase_order` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '采购单ID',
   `purchase_no` VARCHAR(50) NOT NULL COMMENT '采购单号',
@@ -403,6 +404,14 @@ CREATE TABLE IF NOT EXISTS `purchase_status_log` (
   KEY `idx_purchase_no` (`purchase_no`),
   KEY `idx_create_time` (`create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='采购状态记录表';
+
+-- ---------- 采购服务增量：purchase_order.item_snapshot_min_id ----------
+-- 与 sql/erp_list_purchase_item_snapshot_incremental.sql 一致。
+-- 全新执行本文件时：上文 CREATE TABLE purchase_order 已含该列，请勿执行下面语句。
+-- 旧库缺列时：在 erp_list_purchase 库下去掉下行注释，单独执行 ADD COLUMN（若已存在会报 Duplicate，可忽略）。
+-- USE `erp_list_purchase`;
+-- ALTER TABLE `purchase_order`
+--     ADD COLUMN `item_snapshot_min_id` BIGINT DEFAULT NULL COMMENT '当前有效采购明细最小ID（含）' AFTER `remark`;
 
 
 -- ===================== 第8段：退款服务 erp_list_refund =====================
