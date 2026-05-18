@@ -38,6 +38,7 @@
           <el-descriptions-item label="预计到货">{{ detail.order.expectedArrivalTime ?? '-' }}</el-descriptions-item>
           <el-descriptions-item label="创建时间">{{ detail.order.createTime }}</el-descriptions-item>
           <el-descriptions-item v-if="detail.order.approveTime" label="审核时间">{{ detail.order.approveTime }}</el-descriptions-item>
+        </el-descriptions>
         <div class="sub-title">采购明细</div>
         <el-table :data="detail.items || []" border size="small">
           <el-table-column prop="productName" label="商品名称" min-width="140" show-overflow-tooltip />
